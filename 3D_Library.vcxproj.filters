@@ -44,6 +44,9 @@
     <ClCompile Include="src\core\ShaderLibrary.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\InputHandler.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
     <ClCompile Include="src\renderer\Mesh.cpp">
       <Filter>src\renderer</Filter>
     </ClCompile>
@@ -69,6 +72,9 @@
       <Filter>src\core</Filter>
     </ClInclude>
     <ClInclude Include="src\core\ShaderLibrary.h">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\InputHandler.h">
       <Filter>src\core</Filter>
     </ClInclude>
     <ClInclude Include="src\renderer\Mesh.h">

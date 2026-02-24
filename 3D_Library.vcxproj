@@ -152,6 +152,7 @@
     <ClCompile Include="src\core\Shader.cpp" />
     <ClCompile Include="src\core\Camera.cpp" />
     <ClCompile Include="src\core\ShaderLibrary.cpp" />
+    <ClCompile Include="src\core\InputHandler.cpp" />
     <ClCompile Include="src\renderer\Mesh.cpp" />
     <ClCompile Include="src\renderer\Primitives.cpp" />
   </ItemGroup>
@@ -163,6 +164,7 @@
     <ClInclude Include="src\core\Shader.h" />
     <ClInclude Include="src\core\Camera.h" />
     <ClInclude Include="src\core\ShaderLibrary.h" />
+    <ClInclude Include="src\core\InputHandler.h" />
     <ClInclude Include="src\renderer\Mesh.h" />
     <ClInclude Include="src\renderer\Renderer.h" />
     <ClInclude Include="src\renderer\Primitives.h" />
