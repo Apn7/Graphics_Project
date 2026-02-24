@@ -1,11 +1,7 @@
 // =============================================================================
-// main.cpp — Entry Point for the 3D Library Simulation (Phase 5)
+// main.cpp — Entry Point for the 3D Library Simulation (Phase 6)
 // =============================================================================
-// Demonstrates the full library scene:
-//   1. Scene::Build() constructs all walls, shelves, books, tables, chairs, fans
-//   2. Scene::Render() draws everything with a single cube mesh
-//   3. FPS camera from Phase 4 for navigation
-//   4. F1-F4 debug render modes to isolate object groups
+// Phase 6 adds texture mapping with 3 shader modes and keyboard toggles.
 //
 // Controls:
 //   WASD       — Move
@@ -15,9 +11,17 @@
 //   Left Shift — Sprint
 //   Tab        — Toggle cursor
 //   F1         — Render all (default)
-//   F2         — Room shell only (walls/floor/ceiling)
-//   F3         — Furniture only (table + chair)
-//   F4         — Shelves + books only (shelf + book + island)
+//   F2         — Room shell only
+//   F3         — Furniture only
+//   F4         — Shelves + books only
+//   F5         — Toggle wireframe
+//   F6         — Toggle point cloud
+//   T          — Cycle texture override (per-object → flat → simple → vertex → fragment)
+//   1          — Per-object texture mode (default)
+//   2          — All flat color (no textures)
+//   3          — All simple texture
+//   4          — All vertex blend
+//   5          — All fragment blend
 //   ESC        — Exit
 // =============================================================================
 
@@ -26,7 +30,9 @@
 #include "core/Camera.h"
 #include "core/InputHandler.h"
 #include "scene/Scene.h"
+#include "scene/TextureMode.h"
 #include "renderer/Renderer.h"
+#include "renderer/TextureManager.h"
 #include "utils/Logger.h"
 
 #include <glm/glm.hpp>
@@ -54,14 +60,16 @@ constexpr float FAR_PLANE  = 100.0f;
 static int g_RenderMode = 0;   // 0 = all, 1 = room, 2 = furniture, 3 = shelves+books
 
 // Polygon debug mode — controlled by F5/F6 keys
-// 0 = fill (normal), 1 = wireframe, 2 = points
-static int g_PolyMode   = 0;
+static int g_PolyMode   = 0;   // 0 = fill, 1 = wireframe, 2 = points
+
+// Phase 6: Global texture override — controlled by T / 1-5 keys
+static GlobalTextureOverride g_TexOverride = GlobalTextureOverride::NONE;
 
 // =============================================================================
 // main — Application entry point
 // =============================================================================
 int main() {
-    LOG_INFO("=== 3D Library Simulation — Phase 5 ===");
+    LOG_INFO("=== 3D Library Simulation — Phase 6 ===");
     LOG_INFO("Starting application...");
 
     // ---- Step 1: Create the window ----
@@ -75,25 +83,32 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     LOG_INFO("Depth testing enabled");
 
-    // ---- Step 3: Load shaders ----
-    ShaderLibrary::Get().LoadAll();
-    Shader& shader = ShaderLibrary::Get().GetBasic();
+    // ---- Step 3: Load textures ----
+    TextureManager::Get().LoadAll();
 
-    // ---- Step 4: Build the scene ----
+    // ---- Step 4: Load shaders ----
+    ShaderLibrary::Get().LoadAll();
+    Shader& flatShader     = ShaderLibrary::Get().GetBasic();
+    Shader& simpleShader   = ShaderLibrary::Get().GetTextureSimple();
+    Shader& vertexShader   = ShaderLibrary::Get().GetTextureVertex();
+    Shader& fragmentShader = ShaderLibrary::Get().GetTextureFragment();
+
+    // ---- Step 5: Build the scene (includes AssignTextures) ----
     Scene scene;
     scene.Build();
 
-    // ---- Step 5: Create the camera ----
+    // ---- Step 6: Create the camera ----
     Camera camera(glm::vec3(5.0f, 1.7f, 3.5f), 180.0f, 0.0f);
 
-    // ---- Step 6: Initialize input handler ----
+    // ---- Step 7: Initialize input handler ----
     InputHandler::Init(window.GetNativeWindow(), &camera);
 
-    // ---- Step 7: Initialize timing ----
+    // ---- Step 8: Initialize timing ----
     float lastFrameTime = 0.0f;
 
     LOG_INFO("Entering main render loop...");
-    LOG_INFO("Controls: WASD=move, QE=up/down, Mouse=look, Scroll=zoom, Shift=sprint, Tab=cursor, F1-F4=debug, ESC=exit");
+    LOG_INFO("Controls: WASD=move, QE=up/down, Mouse=look, Scroll=zoom, Shift=sprint, Tab=cursor");
+    LOG_INFO("Debug: F1-F4=groups, F5=wireframe, F6=points, T/1-5=texture mode, ESC=exit");
 
     // =========================================================================
     // Main Render Loop
@@ -119,26 +134,54 @@ int main() {
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F3) == GLFW_PRESS) g_RenderMode = 2;
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F4) == GLFW_PRESS) g_RenderMode = 3;
 
-        // F5 = wireframe toggle, F6 = point toggle (same key again = back to fill)
+        // F5 = wireframe toggle, F6 = point toggle
         static bool f5Last = false, f6Last = false;
         bool f5Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F5) == GLFW_PRESS);
         bool f6Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F6) == GLFW_PRESS);
-        if (f5Now && !f5Last) g_PolyMode = (g_PolyMode == 1) ? 0 : 1;  // toggle wireframe
-        if (f6Now && !f6Last) g_PolyMode = (g_PolyMode == 2) ? 0 : 2;  // toggle points
+        if (f5Now && !f5Last) g_PolyMode = (g_PolyMode == 1) ? 0 : 1;
+        if (f6Now && !f6Last) g_PolyMode = (g_PolyMode == 2) ? 0 : 2;
         f5Last = f5Now;  f6Last = f6Now;
+
+        // ---- Phase 6: Texture override toggle (T cycles, 1-5 direct set) ----
+        static bool tLast = false, k1Last = false, k2Last = false;
+        static bool k3Last = false, k4Last = false, k5Last = false;
+        bool tNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_T)  == GLFW_PRESS);
+        bool k1Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_1)  == GLFW_PRESS);
+        bool k2Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_2)  == GLFW_PRESS);
+        bool k3Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_3)  == GLFW_PRESS);
+        bool k4Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_4)  == GLFW_PRESS);
+        bool k5Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_5)  == GLFW_PRESS);
+
+        if (tNow && !tLast) {
+            int cur = static_cast<int>(g_TexOverride);
+            cur = (cur + 2) % 5 - 1;  // cycle: -1 → 0 → 1 → 2 → 3 → -1
+            g_TexOverride = static_cast<GlobalTextureOverride>(cur);
+        }
+        if (k1Now && !k1Last) g_TexOverride = GlobalTextureOverride::NONE;
+        if (k2Now && !k2Last) g_TexOverride = GlobalTextureOverride::ALL_FLAT;
+        if (k3Now && !k3Last) g_TexOverride = GlobalTextureOverride::ALL_SIMPLE;
+        if (k4Now && !k4Last) g_TexOverride = GlobalTextureOverride::ALL_VERTEX;
+        if (k5Now && !k5Last) g_TexOverride = GlobalTextureOverride::ALL_FRAGMENT;
+        tLast = tNow; k1Last = k1Now; k2Last = k2Now;
+        k3Last = k3Now; k4Last = k4Now; k5Last = k5Now;
 
         // ---- Update window title ----
         float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
         glm::vec3 pos = camera.GetPosition();
-        const char* polyModeStr[] = { "Fill", "Wireframe(F5)", "Points(F6)" };
+        const char* polyModeStr[] = { "Fill", "Wire(F5)", "Pts(F6)" };
+        const char* texModeStr[]  = { "Flat(2)", "Simple(3)", "VtxBlend(4)", "FragBlend(5)" };
+        std::string texLabel = (g_TexOverride == GlobalTextureOverride::NONE)
+            ? "PerObj(1)"
+            : texModeStr[static_cast<int>(g_TexOverride)];
+
         std::string title = "3D Library | FPS: " + std::to_string(static_cast<int>(fps))
             + " | Pos: ("
             + std::to_string(static_cast<int>(pos.x)) + ", "
             + std::to_string(static_cast<int>(pos.y)) + ", "
             + std::to_string(static_cast<int>(pos.z)) + ")"
-            + " | Yaw: " + std::to_string(static_cast<int>(camera.GetYaw()))
-            + " | Objects: " + std::to_string(scene.GetObjectCount())
-            + " | Draw: " + polyModeStr[g_PolyMode];
+            + " | Objs: " + std::to_string(scene.GetObjectCount())
+            + " | Poly: " + polyModeStr[g_PolyMode]
+            + " | Tex: " + texLabel;
         glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
 
         // ---- Clear screen ----
@@ -161,31 +204,40 @@ int main() {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        // ---- Activate shader and set per-frame uniforms ----
-        shader.Use();
-        shader.SetMat4("u_View", camera.GetViewMatrix());
-        shader.SetMat4("u_Projection", projection);
-        shader.SetFloat("u_Alpha", 1.0f);
-        // TODO Phase 6: shader.SetVec3("u_ViewPos", camera.GetPosition());
+        // ---- Phase 6: Set camera matrices for multi-shader render ----
+        scene.SetCameraMatrices(camera.GetViewMatrix(), projection);
 
-        // ---- Render scene (or debug group) ----
+        // ---- Render scene ----
         switch (g_RenderMode) {
             case 0:
-                scene.Render(shader);
+                // Full scene with multi-shader mode
+                scene.Render(flatShader, simpleShader, vertexShader, fragmentShader, g_TexOverride);
                 break;
             case 1:
-                scene.RenderGroup(shader, "floor");
-                scene.RenderGroup(shader, "ceiling");
-                scene.RenderGroup(shader, "wall");
+                // Debug: room only (flat shader)
+                flatShader.Use();
+                flatShader.SetMat4("u_View", camera.GetViewMatrix());
+                flatShader.SetMat4("u_Projection", projection);
+                flatShader.SetFloat("u_Alpha", 1.0f);
+                scene.RenderGroup(flatShader, "floor");
+                scene.RenderGroup(flatShader, "ceiling");
+                scene.RenderGroup(flatShader, "wall");
                 break;
             case 2:
-                scene.RenderGroup(shader, "table");
-                scene.RenderGroup(shader, "chair");
+                flatShader.Use();
+                flatShader.SetMat4("u_View", camera.GetViewMatrix());
+                flatShader.SetMat4("u_Projection", projection);
+                flatShader.SetFloat("u_Alpha", 1.0f);
+                scene.RenderGroup(flatShader, "table");
+                scene.RenderGroup(flatShader, "chair");
                 break;
             case 3:
-                scene.RenderGroup(shader, "shelf");
-                scene.RenderGroup(shader, "book");
-                scene.RenderGroup(shader, "island");
+                flatShader.Use();
+                flatShader.SetMat4("u_View", camera.GetViewMatrix());
+                flatShader.SetMat4("u_Projection", projection);
+                flatShader.SetFloat("u_Alpha", 1.0f);
+                scene.RenderGroup(flatShader, "shelf");
+                scene.RenderGroup(flatShader, "book");
                 break;
         }
 

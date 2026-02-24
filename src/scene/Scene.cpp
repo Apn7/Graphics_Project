@@ -14,10 +14,13 @@
 #include "scene/Scene.h"
 #include "scene/LibraryColors.h"
 #include "renderer/Primitives.h"
+#include "renderer/TextureManager.h"
 #include "utils/Transform.h"
 #include "utils/Logger.h"
 #include "core/Shader.h"
 #include "renderer/Mesh.h"
+
+#include <glad/glad.h>  // Phase 6: glActiveTexture, glBindTexture
 
 #include <cmath>      // cos, sin for fan blades
 #include <glm/gtc/matrix_transform.hpp>  // translate, rotate, scale for fan assembly
@@ -86,6 +89,9 @@ void Scene::Build() {
     BuildChairs();
     BuildCeiling();
 
+    // Phase 6: assign textures and modes
+    AssignTextures();
+
     LOG_INFO("Scene built: " + std::to_string(m_Objects.size()) + " objects");
 }
 
@@ -98,6 +104,76 @@ void Scene::Render(Shader& shader) {
         shader.SetVec3("u_Color", obj.Color);
         m_CubeMesh->Draw();
     }
+}
+
+// =============================================================================
+// Multi-shader Render (Phase 6)
+// =============================================================================
+void Scene::Render(Shader& flatShader,
+                   Shader& simpleShader,
+                   Shader& vertexBlendShader,
+                   Shader& fragmentBlendShader,
+                   GlobalTextureOverride override)
+{
+    for (const auto& obj : m_Objects) {
+        // Determine effective mode
+        TextureMode effectiveMode = obj.Mode;
+        // Override only applies to textured objects (floor, walls, table tops)
+        // Non-textured objects (chairs, shelves, books, etc.) always stay flat
+        if (override != GlobalTextureOverride::NONE && obj.TextureID != 0)
+            effectiveMode = static_cast<TextureMode>(static_cast<int>(override));
+
+        // Select the correct shader
+        Shader* shader = nullptr;
+        switch (effectiveMode) {
+            case TextureMode::SIMPLE_TEXTURE:  shader = &simpleShader;        break;
+            case TextureMode::VERTEX_BLEND:    shader = &vertexBlendShader;   break;
+            case TextureMode::FRAGMENT_BLEND:  shader = &fragmentBlendShader; break;
+            default:                           shader = &flatShader;          break;
+        }
+
+        shader->Use();
+
+        // Common uniforms
+        shader->SetMat4("u_Model",      obj.Transform);
+        shader->SetMat4("u_View",       m_View);
+        shader->SetMat4("u_Projection", m_Projection);
+
+        // Texture-specific uniforms
+        if (effectiveMode != TextureMode::FLAT_COLOR) {
+            shader->SetFloat("u_TileX", obj.UVTileX);
+            shader->SetFloat("u_TileY", obj.UVTileY);
+            shader->SetInt("u_Texture", 0);
+
+            if (obj.TextureID != 0) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, obj.TextureID);
+            }
+        }
+
+        // Color blend uniforms (vertex and fragment blend modes)
+        if (effectiveMode == TextureMode::VERTEX_BLEND ||
+            effectiveMode == TextureMode::FRAGMENT_BLEND) {
+            shader->SetVec3("u_SurfaceColor", obj.Color);
+            shader->SetFloat("u_BlendFactor",  obj.BlendFactor);
+        }
+
+        // Flat color fallback
+        if (effectiveMode == TextureMode::FLAT_COLOR) {
+            shader->SetVec3("u_Color",  obj.Color);
+            shader->SetFloat("u_Alpha", 1.0f);
+        }
+
+        m_CubeMesh->Draw();
+    }
+}
+
+// =============================================================================
+// SetCameraMatrices
+// =============================================================================
+void Scene::SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection) {
+    m_View       = view;
+    m_Projection = projection;
 }
 
 void Scene::RenderGroup(Shader& shader, const std::string& groupPrefix) {
@@ -440,4 +516,50 @@ void Scene::UpdateAnimations(float deltaTime) {
 
         m_Objects[m_FanBladeIndices[i]].Transform = model;
     }
+}
+
+// =============================================================================
+// AssignTextures — Phase 6: Set texture IDs and modes on built objects
+// =============================================================================
+void Scene::AssignTextures() {
+    unsigned int floorTex = TextureManager::Get().GetID("floor");
+    unsigned int wallTex  = TextureManager::Get().GetID("wall");
+    unsigned int woodTex  = TextureManager::Get().GetID("wood");
+
+    for (auto& obj : m_Objects) {
+
+        // FLOOR — Simple texture, no color blend
+        if (obj.Label == "floor") {
+            obj.TextureID   = floorTex;
+            obj.Mode        = TextureMode::SIMPLE_TEXTURE;
+            obj.UVTileX     = 8.0f;   // Tile across 16-unit floor width
+            obj.UVTileY     = 7.0f;   // Tile across 14-unit floor depth
+        }
+
+        // WALLS — Vertex color blend (cream tint over plaster texture)
+        else if (obj.Label.rfind("wall_", 0) == 0) {
+            obj.TextureID   = wallTex;
+            obj.Mode        = TextureMode::VERTEX_BLEND;
+            obj.UVTileX     = 3.0f;
+            obj.UVTileY     = 2.0f;
+            obj.Color       = LibraryColors::WALL_CREAM;
+            obj.BlendFactor = 0.35f;  // Subtle tint — mostly texture
+        }
+
+        // TABLE TOPS — Fragment color blend (dark wood texture + dark tint)
+        else if (obj.Label.find("table") != std::string::npos &&
+                 obj.Label.find("top")   != std::string::npos) {
+            obj.TextureID   = woodTex;
+            obj.Mode        = TextureMode::FRAGMENT_BLEND;
+            obj.UVTileX     = 2.0f;
+            obj.UVTileY     = 1.0f;
+            obj.Color       = LibraryColors::WOOD_TABLE;
+            obj.BlendFactor = 0.40f;
+        }
+
+        // Everything else remains FLAT_COLOR (Phase 5 behavior unchanged)
+        // TODO Phase 7: Assign textures to bookshelves, books, ceiling, chair frames
+    }
+
+    LOG_INFO("AssignTextures: Texture modes assigned to scene objects.");
 }
