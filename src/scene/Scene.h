@@ -1,13 +1,15 @@
 // =============================================================================
-// Scene.h — Library Scene Manager (Phase 5)
+// Scene.h — Library Scene Manager (Phase 5 + Phase 6 Textures)
 // =============================================================================
 // Manages the complete library scene — walls, shelves, books, tables, chairs,
 // fans, windows, door. All objects are transformed cubes.
+// Phase 6: Added texture assignment, multi-shader render, camera matrix storage.
 // =============================================================================
 
 #pragma once
 
 #include "scene/SceneObject.h"
+#include "scene/TextureMode.h"
 
 #include <vector>
 #include <memory>
@@ -27,11 +29,22 @@ public:
     // Build the entire library. Called once at startup.
     void Build();
 
-    // Draw all objects. Shader must already be Use()'d before calling.
+    // --- Phase 6: Multi-shader render ---
+    // Each object picks the correct shader based on its TextureMode.
+    void Render(Shader& flatShader,
+                Shader& simpleShader,
+                Shader& vertexBlendShader,
+                Shader& fragmentBlendShader,
+                GlobalTextureOverride override);
+
+    // Legacy single-shader render (kept for RenderGroup / debug views)
     void Render(Shader& shader);
 
     // Draw only objects whose Label starts with groupPrefix
     void RenderGroup(Shader& shader, const std::string& groupPrefix);
+
+    // Store camera matrices so Render() can set per-shader uniforms
+    void SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection);
 
     // Stats
     size_t GetObjectCount() const { return m_Objects.size(); }
@@ -43,11 +56,15 @@ private:
     std::unique_ptr<Mesh> m_CubeMesh;       // Single cube mesh shared by all objects
     std::vector<SceneObject> m_Objects;      // All scene objects
 
+    // Camera matrices (set each frame before Render)
+    glm::mat4 m_View       = glm::mat4(1.0f);
+    glm::mat4 m_Projection = glm::mat4(1.0f);
+
     // Fan animation state
-    float m_FanAngle = 0.0f;                         // Accumulated rotation (degrees)
-    float m_FanSpeed = 120.0f;                        // Degrees per second
-    glm::vec3 m_FanCenter = glm::vec3(0.0f);         // Center of the fan
-    std::vector<size_t> m_FanBladeIndices;            // Indices into m_Objects for the 5 blades
+    float m_FanAngle = 0.0f;
+    float m_FanSpeed = 120.0f;
+    glm::vec3 m_FanCenter = glm::vec3(0.0f);
+    std::vector<size_t> m_FanBladeIndices;
 
     // Helper: adds a SceneObject (no rotation)
     void Add(const std::string& label,
@@ -71,4 +88,7 @@ private:
     void BuildChairs();
     void BuildCeiling();
     void BuildBooks();
+
+    // Phase 6: Assign textures and modes after Build
+    void AssignTextures();
 };

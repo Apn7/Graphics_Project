@@ -17,11 +17,15 @@
 // more shaders here (phong, unlit, etc.).
 // =============================================================================
 void ShaderLibrary::LoadAll() {
-    // Load the primary shader used in Phases 2–5
+    // Phase 2-5: flat color shader
     Load("basic", "shaders/basic.vert", "shaders/basic.frag");
 
-    // TODO Phase 6: Load("phong",  "shaders/phong.vert",  "shaders/phong.frag");
-    // TODO Phase 6: Load("unlit",  "shaders/unlit.vert",  "shaders/unlit.frag");
+    // Phase 6: texture shaders
+    Load("texture_simple",   "shaders/texture_simple.vert",        "shaders/texture_simple.frag");
+    Load("texture_vertex",   "shaders/texture_vertex_blend.vert",  "shaders/texture_vertex_blend.frag");
+    Load("texture_fragment", "shaders/texture_fragment_blend.vert", "shaders/texture_fragment_blend.frag");
+
+    // TODO Phase 7 (Lighting): Load("phong", "shaders/phong.vert", "shaders/phong.frag");
 
     LOG_INFO("ShaderLibrary: All shaders loaded successfully.");
 }
@@ -69,4 +73,16 @@ Shader& ShaderLibrary::GetShader(const std::string& name) {
 // =============================================================================
 Shader& ShaderLibrary::GetBasic() {
     return GetShader("basic");
+}
+
+Shader& ShaderLibrary::GetTextureSimple() {
+    return GetShader("texture_simple");
+}
+
+Shader& ShaderLibrary::GetTextureVertex() {
+    return GetShader("texture_vertex");
+}
+
+Shader& ShaderLibrary::GetTextureFragment() {
+    return GetShader("texture_fragment");
 }

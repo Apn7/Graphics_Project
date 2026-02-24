@@ -55,9 +55,12 @@ public:
     Shader& GetShader(const std::string& name);
 
     // =========================================================================
-    // GetBasic — Convenience getter for the "basic" shader
+    // Convenience getters
     // =========================================================================
     Shader& GetBasic();
+    Shader& GetTextureSimple();
+    Shader& GetTextureVertex();
+    Shader& GetTextureFragment();
 
 private:
     // Private constructor — only Get() can create the instance
