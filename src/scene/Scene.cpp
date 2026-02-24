@@ -4,6 +4,11 @@
 // Implements the complete library scene using transformed cubes.
 // All objects use a single shared cube mesh — only the model matrix differs.
 // No OpenGL calls here — only in Mesh::Draw().
+//
+// Room dimensions (updated):
+//   Width  (X): -8 to +8   (16 units)
+//   Depth  (Z): -7 to +7   (14 units)
+//   Height (Y):  0 to  6.0 (6  units)
 // =============================================================================
 
 #include "scene/Scene.h"
@@ -15,11 +20,20 @@
 #include "renderer/Mesh.h"
 
 #include <cmath>      // cos, sin for fan blades
+#include <glm/gtc/matrix_transform.hpp>  // translate, rotate, scale for fan assembly
 
 using namespace LibraryColors;
 
 // =============================================================================
-// Constructor
+// Room dimension constants — single source of truth
+// =============================================================================
+static constexpr float ROOM_HALF_W  = 8.0f;   // X: -8 to +8
+static constexpr float ROOM_HALF_D  = 7.0f;   // Z: -7 to +7
+static constexpr float ROOM_HEIGHT  = 6.0f;   // Y: 0 to 6
+static constexpr float WALL_THICK   = 0.2f;
+
+// =============================================================================
+// Constructor / Destructor
 // =============================================================================
 Scene::Scene()
     : m_CubeMesh(nullptr)
@@ -29,7 +43,7 @@ Scene::Scene()
 Scene::~Scene() = default;
 
 // =============================================================================
-// Add — Shorthand (no rotation)
+// Add helpers
 // =============================================================================
 void Scene::Add(const std::string& label,
                 const glm::vec3& position,
@@ -43,9 +57,6 @@ void Scene::Add(const std::string& label,
     });
 }
 
-// =============================================================================
-// Add — Full (with rotation)
-// =============================================================================
 void Scene::Add(const std::string& label,
                 const glm::vec3& position,
                 const glm::vec3& rotDeg,
@@ -60,7 +71,7 @@ void Scene::Add(const std::string& label,
 }
 
 // =============================================================================
-// Build — Constructs the entire library scene
+// Build
 // =============================================================================
 void Scene::Build() {
     m_CubeMesh = Primitives::CreateCube();
@@ -70,7 +81,6 @@ void Scene::Build() {
     BuildWindows();
     BuildDoor();
     BuildWallShelves();
-    BuildIslandShelf();
     BuildBooks();
     BuildTables();
     BuildChairs();
@@ -80,9 +90,8 @@ void Scene::Build() {
 }
 
 // =============================================================================
-// Render — Draw all objects
+// Render / RenderGroup
 // =============================================================================
-// TODO Phase 6: Upload u_Material per object instead of u_Color
 void Scene::Render(Shader& shader) {
     for (const auto& obj : m_Objects) {
         shader.SetMat4("u_Model", obj.Transform);
@@ -91,9 +100,6 @@ void Scene::Render(Shader& shader) {
     }
 }
 
-// =============================================================================
-// RenderGroup — Draw only objects matching a label prefix
-// =============================================================================
 void Scene::RenderGroup(Shader& shader, const std::string& groupPrefix) {
     for (const auto& obj : m_Objects) {
         if (obj.Label.rfind(groupPrefix, 0) == 0) {
@@ -107,123 +113,123 @@ void Scene::RenderGroup(Shader& shader, const std::string& groupPrefix) {
 // =============================================================================
 // BuildRoom — Floor, ceiling, 4 walls
 // =============================================================================
+// Room: X[-8,+8], Z[-7,+7], Y[0,6]
+// =============================================================================
 void Scene::BuildRoom() {
+    float fullW = ROOM_HALF_W * 2.0f;  // 16
+    float fullD = ROOM_HALF_D * 2.0f;  // 14
+    float midY  = ROOM_HEIGHT * 0.5f;  // 3
+
     // Floor
-    Add("floor",        {0.0f, 0.0f, 0.0f},    {12.0f, 0.2f, 10.0f},  FLOOR_TILE);
-
+    Add("floor",      {0, 0, 0},                    {fullW, WALL_THICK, fullD},     FLOOR_TILE);
     // Ceiling
-    Add("ceiling",      {0.0f, 4.5f, 0.0f},    {12.0f, 0.2f, 10.0f},  CEILING_WOOD);
+    Add("ceiling",    {0, ROOM_HEIGHT, 0},           {fullW, WALL_THICK, fullD},     CEILING_WOOD);
 
-    // Left wall (X = -6)
-    Add("wall_left",    {-6.0f, 2.25f, 0.0f},  {0.2f, 4.5f, 10.0f},   WALL_CREAM);
-
-    // Right wall (X = +6)
-    Add("wall_right",   {6.0f, 2.25f, 0.0f},   {0.2f, 4.5f, 10.0f},   WALL_CREAM);
-
-    // Back wall (Z = -5)
-    Add("wall_back",    {0.0f, 2.25f, -5.0f},  {12.0f, 4.5f, 0.2f},   WALL_CREAM);
-
-    // Front wall (Z = +5)
-    Add("wall_front",   {0.0f, 2.25f, 5.0f},   {12.0f, 4.5f, 0.2f},   WALL_CREAM);
+    // Left wall (X = -8)
+    Add("wall_left",  {-ROOM_HALF_W, midY, 0},      {WALL_THICK, ROOM_HEIGHT, fullD},  WALL_CREAM);
+    // Right wall (X = +8)
+    Add("wall_right", { ROOM_HALF_W, midY, 0},      {WALL_THICK, ROOM_HEIGHT, fullD},  WALL_CREAM);
+    // Back wall (Z = -7)
+    Add("wall_back",  {0, midY, -ROOM_HALF_D},      {fullW, ROOM_HEIGHT, WALL_THICK},  WALL_CREAM);
+    // Front wall (Z = +7)
+    Add("wall_front", {0, midY,  ROOM_HALF_D},      {fullW, ROOM_HEIGHT, WALL_THICK},  WALL_CREAM);
 }
 
 // =============================================================================
-// BuildWindows — 2 arched windows (left + right walls)
+// BuildWindows — 2 arched windows flush on inner wall face
 // =============================================================================
 void Scene::BuildWindows() {
+    // Windows sit on the INNER face of the wall (inset slightly from wall center)
+    float leftX  = -ROOM_HALF_W + 0.12f;   // Inner face of left wall
+    float rightX =  ROOM_HALF_W - 0.12f;   // Inner face of right wall
+
     // --- Left wall window ---
-    Add("window_left_frame", {-5.92f, 2.2f, -1.0f},  {0.05f, 3.0f, 2.2f},   WINDOW_FRAME);
-    Add("window_left_rect",  {-5.9f, 2.0f, -1.0f},   {0.1f, 2.5f, 1.8f},    WINDOW_TEAL);
-    Add("window_left_arch",  {-5.9f, 3.4f, -1.0f},   {0.1f, 0.8f, 1.2f},    WINDOW_TEAL);
+    Add("window_left_frame", {leftX - 0.02f, 2.8f, -1.5f},  {0.06f, 3.6f, 2.6f},   WINDOW_FRAME);
+    Add("window_left_rect",  {leftX, 2.5f, -1.5f},          {0.08f, 3.0f, 2.2f},   WINDOW_TEAL);
+    Add("window_left_arch",  {leftX, 4.2f, -1.5f},          {0.08f, 1.0f, 1.4f},   WINDOW_TEAL);
 
     // --- Right wall window (mirrored) ---
-    Add("window_right_frame", {5.92f, 2.2f, -1.0f},  {0.05f, 3.0f, 2.2f},   WINDOW_FRAME);
-    Add("window_right_rect",  {5.9f, 2.0f, -1.0f},   {0.1f, 2.5f, 1.8f},    WINDOW_TEAL);
-    Add("window_right_arch",  {5.9f, 3.4f, -1.0f},   {0.1f, 0.8f, 1.2f},    WINDOW_TEAL);
+    Add("window_right_frame", {rightX + 0.02f, 2.8f, -1.5f}, {0.06f, 3.6f, 2.6f},  WINDOW_FRAME);
+    Add("window_right_rect",  {rightX, 2.5f, -1.5f},         {0.08f, 3.0f, 2.2f},  WINDOW_TEAL);
+    Add("window_right_arch",  {rightX, 4.2f, -1.5f},         {0.08f, 1.0f, 1.4f},  WINDOW_TEAL);
 }
 
 // =============================================================================
 // BuildDoor — Wooden door on right wall
 // =============================================================================
 void Scene::BuildDoor() {
-    Add("door_frame",   {5.9f, 1.9f, 2.5f},    {0.1f, 4.0f, 2.2f},    WOOD_DARK);
-    Add("door",         {5.9f, 1.8f, 2.5f},     {0.15f, 3.6f, 1.8f},   WOOD_MEDIUM);
-    Add("door_handle",  {5.8f, 1.8f, 1.7f},     {0.15f, 0.08f, 0.08f}, METAL_DARK);
+    float doorX = ROOM_HALF_W - 0.1f;  // Inner face of right wall
+
+    Add("door_frame",  {doorX, 2.0f, 3.5f},    {0.12f, 4.2f, 2.4f},   WOOD_DARK);
+    Add("door",        {doorX, 1.9f, 3.5f},    {0.16f, 3.8f, 2.0f},   WOOD_MEDIUM);
+    Add("door_handle", {doorX - 0.12f, 1.8f, 2.6f}, {0.15f, 0.08f, 0.08f}, METAL_DARK);
 }
 
 // =============================================================================
-// BuildWallShelves — Left wall (2 tall units) + back wall (3 medium units)
+// BuildWallShelves — Back wall (3 medium units) + Front wall (3 medium units, mirrored)
+// =============================================================================
+// Shelf panel centers at y=1.8 so bottom edge = 1.8 - 1.8 = 0 (floor level)
+// No separate base piece — side panels start at floor, no gap.
 // =============================================================================
 void Scene::BuildWallShelves() {
     // ---------------------------------------------------------------
-    // Helper: one tall shelf unit on the left wall
-    // ---------------------------------------------------------------
-    auto BuildTallShelf = [&](float zCenter, const std::string& prefix) {
-        float x = -5.5f;  // Hugging left wall
-
-        Add(prefix + "_back",   {x, 2.0f, zCenter},                    {0.1f, 4.0f, 1.8f},    WOOD_DARK);
-        Add(prefix + "_left",   {x + 0.85f, 2.0f, zCenter - 0.85f},   {0.1f, 4.0f, 0.1f},    WOOD_DARK);
-        Add(prefix + "_right",  {x + 0.85f, 2.0f, zCenter + 0.85f},   {0.1f, 4.0f, 0.1f},    WOOD_DARK);
-        Add(prefix + "_top",    {x + 0.45f, 4.0f, zCenter},           {0.9f, 0.08f, 1.8f},   WOOD_DARK);
-        Add(prefix + "_base",   {x + 0.45f, 0.1f, zCenter},           {0.9f, 0.15f, 1.8f},   WOOD_DARK);
-
-        // 5 shelves at even vertical intervals
-        for (int i = 0; i < 5; i++) {
-            float shelfY = 0.6f + i * 0.65f;
-            Add(prefix + "_shelf" + std::to_string(i),
-                {x + 0.45f, shelfY, zCenter},
-                {0.9f, 0.06f, 1.8f}, WOOD_DARK);
-        }
-    };
-
-    BuildTallShelf(-2.0f, "shelf_wall_left_A");
-    BuildTallShelf( 0.5f, "shelf_wall_left_B");
-
-    // ---------------------------------------------------------------
-    // Helper: one medium shelf unit on the back wall
+    // Medium shelf on back wall — back panel at z=-6.6, extends inward
+    // Panels: center y=1.8, scale.y=3.6 → bottom=0 (floor), top=3.6
     // ---------------------------------------------------------------
     auto BuildMediumShelf = [&](float xCenter, const std::string& prefix) {
-        float z = -4.7f;  // Hugging back wall
+        float z   = -ROOM_HALF_D + 0.4f;  // Back panel hugging back wall
+        float cy  = 1.8f;                  // Center Y: bottom = cy - 1.8 = 0
+        float h   = 3.6f;                  // Total height
+        float dz  = 0.35f;                 // Depth offset inward
 
-        Add(prefix + "_back",   {xCenter, 1.8f, z},                    {1.6f, 3.2f, 0.1f},    WOOD_DARK);
-        Add(prefix + "_left",   {xCenter - 0.75f, 1.8f, z + 0.3f},   {0.08f, 3.2f, 0.6f},   WOOD_DARK);
-        Add(prefix + "_right",  {xCenter + 0.75f, 1.8f, z + 0.3f},   {0.08f, 3.2f, 0.6f},   WOOD_DARK);
-        Add(prefix + "_top",    {xCenter, 3.3f, z + 0.3f},            {1.6f, 0.07f, 0.6f},   WOOD_DARK);
-        Add(prefix + "_base",   {xCenter, 0.1f, z + 0.3f},            {1.6f, 0.12f, 0.6f},   WOOD_DARK);
+        Add(prefix + "_back",   {xCenter, cy, z},                  {1.8f, h, 0.1f},    WOOD_DARK);
+        Add(prefix + "_left",   {xCenter - 0.85f, cy, z + dz},    {0.08f, h, 0.7f},   WOOD_DARK);
+        Add(prefix + "_right",  {xCenter + 0.85f, cy, z + dz},    {0.08f, h, 0.7f},   WOOD_DARK);
+        Add(prefix + "_top",    {xCenter, cy + h * 0.5f - 0.04f, z + dz}, {1.8f, 0.07f, 0.7f}, WOOD_DARK);
 
         for (int i = 0; i < 4; i++) {
-            float shelfY = 0.55f + i * 0.65f;
+            float shelfY = 0.55f + i * 0.75f;
             Add(prefix + "_shelf" + std::to_string(i),
-                {xCenter, shelfY, z + 0.3f},
-                {1.6f, 0.06f, 0.6f}, WOOD_DARK);
+                {xCenter, shelfY, z + dz},
+                {1.8f, 0.06f, 0.7f}, WOOD_DARK);
         }
     };
 
-    BuildMediumShelf(-3.5f, "shelf_back_A");
+    BuildMediumShelf(-4.5f, "shelf_back_A");
     BuildMediumShelf( 0.0f, "shelf_back_B");
-    BuildMediumShelf( 3.5f, "shelf_back_C");
+    BuildMediumShelf( 4.5f, "shelf_back_C");
+
+    // ---------------------------------------------------------------
+    // Front wall mirror — same math, depth offset goes inward (z - dz)
+    // ---------------------------------------------------------------
+    auto BuildMediumShelfFront = [&](float xCenter, const std::string& prefix) {
+        float z   = ROOM_HALF_D - 0.4f;   // Back panel hugging front wall
+        float cy  = 1.8f;
+        float h   = 3.6f;
+        float dz  = 0.35f;
+
+        Add(prefix + "_back",   {xCenter, cy, z},                  {1.8f, h, 0.1f},    WOOD_DARK);
+        Add(prefix + "_left",   {xCenter - 0.85f, cy, z - dz},    {0.08f, h, 0.7f},   WOOD_DARK);
+        Add(prefix + "_right",  {xCenter + 0.85f, cy, z - dz},    {0.08f, h, 0.7f},   WOOD_DARK);
+        Add(prefix + "_top",    {xCenter, cy + h * 0.5f - 0.04f, z - dz}, {1.8f, 0.07f, 0.7f}, WOOD_DARK);
+
+        for (int i = 0; i < 4; i++) {
+            float shelfY = 0.55f + i * 0.75f;
+            Add(prefix + "_shelf" + std::to_string(i),
+                {xCenter, shelfY, z - dz},
+                {1.8f, 0.06f, 0.7f}, WOOD_DARK);
+        }
+    };
+
+    BuildMediumShelfFront(-4.5f, "shelf_front_A");
+    BuildMediumShelfFront( 0.0f, "shelf_front_B");
+    BuildMediumShelfFront( 4.5f, "shelf_front_C");
 }
 
-// =============================================================================
-// BuildIslandShelf — Freestanding shelf in center-left of room
-// =============================================================================
-void Scene::BuildIslandShelf() {
-    float cx = -2.5f, cz = -1.5f;
 
-    Add("island_left",  {cx - 0.75f, 1.8f, cz},   {0.08f, 3.2f, 1.8f},   WOOD_DARK);
-    Add("island_right", {cx + 0.75f, 1.8f, cz},   {0.08f, 3.2f, 1.8f},   WOOD_DARK);
-    Add("island_top",   {cx, 3.3f, cz},            {1.6f, 0.07f, 1.8f},   WOOD_DARK);
-    Add("island_base",  {cx, 0.1f, cz},            {1.6f, 0.12f, 1.8f},   WOOD_DARK);
-
-    for (int i = 0; i < 4; i++) {
-        Add("island_shelf" + std::to_string(i),
-            {cx, 0.55f + i * 0.65f, cz},
-            {1.6f, 0.06f, 1.8f}, WOOD_DARK);
-    }
-}
 
 // =============================================================================
-// BuildBooks — Fill all shelf rows with colorful books
+// BuildBooks — Fill all shelves with colorful books
 // =============================================================================
 void Scene::BuildBooks() {
     const glm::vec3 bookColors[] = {
@@ -232,13 +238,10 @@ void Scene::BuildBooks() {
     };
     const int colorCount = 8;
 
-    // ---------------------------------------------------------------
-    // Helper: fills one shelf row with books
-    // ---------------------------------------------------------------
     auto FillShelfRow = [&](const std::string& prefix,
                             glm::vec3 shelfPos, float shelfWidth, float shelfDepth) {
-        float bookW = 0.07f;    // Spine width
-        float bookH = 0.50f;    // Book height
+        float bookW = 0.07f;
+        float bookH = 0.55f;
         float bookD = shelfDepth * 0.85f;
 
         int count = static_cast<int>(shelfWidth / (bookW + 0.01f));
@@ -250,172 +253,163 @@ void Scene::BuildBooks() {
                 shelfPos.y + bookH * 0.5f + 0.03f,
                 shelfPos.z
             };
-            glm::vec3 bColor = bookColors[i % colorCount];
             Add(prefix + "_book" + std::to_string(i),
-                bPos, {bookW, bookH, bookD}, bColor);
+                bPos, {bookW, bookH, bookD}, bookColors[i % colorCount]);
         }
     };
-
-    // --- Left wall tall shelves (2 units × 5 shelves each) ---
-    auto FillTallShelf = [&](float zCenter, const std::string& prefix) {
-        float x = -5.05f;  // Center of shelf depth
-        for (int i = 0; i < 5; i++) {
-            float shelfY = 0.6f + i * 0.65f;
-            FillShelfRow(prefix + "_s" + std::to_string(i),
-                         {x, shelfY, zCenter}, 0.85f, 1.7f);
-        }
-    };
-
-    FillTallShelf(-2.0f, "books_left_A");
-    FillTallShelf( 0.5f, "books_left_B");
 
     // --- Back wall medium shelves (3 units × 4 shelves each) ---
     auto FillMediumShelf = [&](float xCenter, const std::string& prefix) {
-        float z = -4.4f;
+        float z = -ROOM_HALF_D + 0.75f;
         for (int i = 0; i < 4; i++) {
-            float shelfY = 0.55f + i * 0.65f;
+            float shelfY = 0.55f + i * 0.75f;
             FillShelfRow(prefix + "_s" + std::to_string(i),
-                         {xCenter, shelfY, z}, 1.5f, 0.5f);
+                         {xCenter, shelfY, z}, 1.7f, 0.6f);
         }
     };
 
-    FillMediumShelf(-3.5f, "books_back_A");
+    FillMediumShelf(-4.5f, "books_back_A");
     FillMediumShelf( 0.0f, "books_back_B");
-    FillMediumShelf( 3.5f, "books_back_C");
+    FillMediumShelf( 4.5f, "books_back_C");
 
-    // --- Island shelf (4 shelves) ---
-    float cx = -2.5f, cz = -1.5f;
-    for (int i = 0; i < 4; i++) {
-        float shelfY = 0.55f + i * 0.65f;
-        FillShelfRow("books_island_s" + std::to_string(i),
-                     {cx, shelfY, cz}, 1.5f, 1.7f);
-    }
+    // --- Front wall medium shelves (exact mirror of back wall) ---
+    auto FillMediumShelfFront = [&](float xCenter, const std::string& prefix) {
+        float z = ROOM_HALF_D - 0.75f;   // Mirrored
+        for (int i = 0; i < 4; i++) {
+            float shelfY = 0.55f + i * 0.75f;
+            FillShelfRow(prefix + "_s" + std::to_string(i),
+                         {xCenter, shelfY, z}, 1.7f, 0.6f);
+        }
+    };
+
+    FillMediumShelfFront(-4.5f, "books_front_A");
+    FillMediumShelfFront( 0.0f, "books_front_B");
+    FillMediumShelfFront( 4.5f, "books_front_C");
 }
+
 
 // =============================================================================
 // BuildTables — 3 reading tables
 // =============================================================================
 void Scene::BuildTables() {
     auto BuildTable = [&](const std::string& prefix, glm::vec3 center) {
-        // Tabletop
-        Add(prefix + "_top",  {center.x, 0.78f, center.z},     {2.2f, 0.10f, 1.1f},   WOOD_TABLE);
+        Add(prefix + "_top",  {center.x, 0.78f, center.z},     {2.4f, 0.10f, 1.2f},   WOOD_TABLE);
 
-        // 4 legs
-        float lx = 0.9f, lz = 0.4f;
+        float lx = 1.0f, lz = 0.45f;
         Add(prefix + "_leg0", {center.x - lx, 0.38f, center.z - lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
         Add(prefix + "_leg1", {center.x + lx, 0.38f, center.z - lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
         Add(prefix + "_leg2", {center.x - lx, 0.38f, center.z + lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
         Add(prefix + "_leg3", {center.x + lx, 0.38f, center.z + lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
 
-        // X-cross support braces
-        Add(prefix + "_brace_a", {center.x, 0.12f, center.z}, {2.0f, 0.05f, 0.07f}, WOOD_MEDIUM);
-        Add(prefix + "_brace_b", {center.x, 0.12f, center.z}, {0.07f, 0.05f, 0.9f}, WOOD_MEDIUM);
+        Add(prefix + "_brace_a", {center.x, 0.12f, center.z}, {2.2f, 0.05f, 0.07f}, WOOD_MEDIUM);
+        Add(prefix + "_brace_b", {center.x, 0.12f, center.z}, {0.07f, 0.05f, 1.0f}, WOOD_MEDIUM);
     };
 
-    BuildTable("table_0", {0.5f, 0.0f,  2.5f});    // Front-center
-    BuildTable("table_1", {1.5f, 0.0f,  0.5f});    // Mid-right
-    BuildTable("table_2", {2.5f, 0.0f, -1.5f});    // Back-right
+    BuildTable("table_0", { 1.0f, 0.0f,  3.5f});   // Front area
+    BuildTable("table_1", { 2.0f, 0.0f,  0.5f});   // Mid area
+    BuildTable("table_2", { 3.0f, 0.0f, -2.5f});   // Back area
 }
 
 // =============================================================================
-// BuildChairs — Blue-cushioned wooden chairs around each table
+// BuildChairs — Blue-cushioned chairs around each table
 // =============================================================================
 void Scene::BuildChairs() {
     auto BuildChair = [&](const std::string& prefix, glm::vec3 pos, float yawDeg) {
-        (void)yawDeg; // rotation stored for reference, using offsets for simplicity
+        (void)yawDeg;
 
-        // Seat frame (wood)
         Add(prefix + "_seat_frame", pos + glm::vec3(0, 0.48f, 0),
             {0.50f, 0.05f, 0.50f}, WOOD_MEDIUM);
-
-        // Seat cushion (blue)
         Add(prefix + "_cushion", pos + glm::vec3(0, 0.52f, 0),
             {0.44f, 0.06f, 0.44f}, CUSHION_BLUE);
 
-        // Backrest frame
         glm::vec3 backPos = pos + glm::vec3(0, 0.85f, -0.22f);
         Add(prefix + "_back_frame", backPos, {0.50f, 0.60f, 0.05f}, WOOD_MEDIUM);
-
-        // Backrest cushion
         Add(prefix + "_back_cushion", backPos + glm::vec3(0, 0, 0.03f),
             {0.44f, 0.54f, 0.04f}, CUSHION_BLUE);
 
-        // 4 legs
         float lx = 0.20f, lz = 0.20f, legH = 0.48f;
         Add(prefix + "_leg0", pos + glm::vec3(-lx, legH * 0.5f, -lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg1", pos + glm::vec3( lx, legH * 0.5f, -lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg2", pos + glm::vec3(-lx, legH * 0.5f,  lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg3", pos + glm::vec3( lx, legH * 0.5f,  lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
 
-        // Armrests
         Add(prefix + "_arm_l", pos + glm::vec3(-0.27f, 0.65f, 0), {0.04f, 0.04f, 0.48f}, WOOD_MEDIUM);
         Add(prefix + "_arm_r", pos + glm::vec3( 0.27f, 0.65f, 0), {0.04f, 0.04f, 0.48f}, WOOD_MEDIUM);
     };
 
-    // Chairs around table_0 (center: 0.5, 0, 2.5)
-    BuildChair("chair_t0_front", { 0.5f, 0.0f, 4.0f},  180.0f);
-    BuildChair("chair_t0_back",  { 0.5f, 0.0f, 1.2f},    0.0f);
-    BuildChair("chair_t0_left",  {-0.8f, 0.0f, 2.5f},   90.0f);
-    BuildChair("chair_t0_right", { 1.8f, 0.0f, 2.5f},  270.0f);
+    // Chairs around table_0 (center: 1.0, 0, 3.5)
+    BuildChair("chair_t0_front", { 1.0f, 0.0f, 5.0f},  180.0f);
+    BuildChair("chair_t0_back",  { 1.0f, 0.0f, 2.2f},    0.0f);
+    BuildChair("chair_t0_left",  {-0.5f, 0.0f, 3.5f},   90.0f);
+    BuildChair("chair_t0_right", { 2.5f, 0.0f, 3.5f},  270.0f);
 
-    // Chairs around table_1 (center: 1.5, 0, 0.5)
-    BuildChair("chair_t1_front", { 1.5f, 0.0f, 2.0f},  180.0f);
-    BuildChair("chair_t1_back",  { 1.5f, 0.0f, -0.8f},   0.0f);
-    BuildChair("chair_t1_left",  { 0.2f, 0.0f, 0.5f},   90.0f);
-    BuildChair("chair_t1_right", { 2.8f, 0.0f, 0.5f},  270.0f);
+    // Chairs around table_1 (center: 2.0, 0, 0.5)
+    BuildChair("chair_t1_front", { 2.0f, 0.0f, 2.0f},  180.0f);
+    BuildChair("chair_t1_back",  { 2.0f, 0.0f, -0.8f},   0.0f);
+    BuildChair("chair_t1_left",  { 0.5f, 0.0f, 0.5f},   90.0f);
+    BuildChair("chair_t1_right", { 3.5f, 0.0f, 0.5f},  270.0f);
 
-    // Chairs around table_2 (center: 2.5, 0, -1.5)
-    BuildChair("chair_t2_front", { 2.5f, 0.0f, 0.0f},  180.0f);
-    BuildChair("chair_t2_back",  { 2.5f, 0.0f, -2.8f},   0.0f);
-    BuildChair("chair_t2_left",  { 1.2f, 0.0f, -1.5f},  90.0f);
-    BuildChair("chair_t2_right", { 3.8f, 0.0f, -1.5f}, 270.0f);
+    // Chairs around table_2 (center: 3.0, 0, -2.5)
+    BuildChair("chair_t2_front", { 3.0f, 0.0f, -1.0f},  180.0f);
+    BuildChair("chair_t2_back",  { 3.0f, 0.0f, -3.8f},    0.0f);
+    BuildChair("chair_t2_left",  { 1.5f, 0.0f, -2.5f},   90.0f);
+    BuildChair("chair_t2_right", { 4.5f, 0.0f, -2.5f},  270.0f);
 }
 
 // =============================================================================
-// BuildCeiling — 2 ceiling fans + pendant light clusters
+// BuildCeiling — Single center ceiling fan with rigidly attached blades
+// =============================================================================
+// Each blade transform: T(fanCenter) * R(Y, angle) * T(localOffset) * S(size)
+// This means each blade extends from the motor along local +X, and the Y
+// rotation at the center spins the whole assembly — like a real fan.
 // =============================================================================
 void Scene::BuildCeiling() {
-    auto BuildFan = [&](const std::string& prefix, glm::vec3 center) {
-        // Central hub
-        Add(prefix + "_hub", center, {0.20f, 0.15f, 0.20f}, METAL_DARK);
+    float fanY = ROOM_HEIGHT - 0.6f;   // 5.4 — well below ceiling slab
+    m_FanCenter = glm::vec3(0.0f, fanY, 0.0f);
+    m_FanBladeIndices.clear();
 
-        // Motor housing
-        Add(prefix + "_motor", center + glm::vec3(0, -0.12f, 0),
-            {0.30f, 0.20f, 0.30f}, METAL_DARK);
+    // Rod from ceiling to motor
+    Add("fan_rod", {0.0f, ROOM_HEIGHT - 0.3f, 0.0f}, {0.06f, 0.6f, 0.06f}, METAL_DARK);
 
-        // 5 blades radiating outward
-        // TODO Phase 9: Fan blade transforms will be modified each frame by fanAngle rotation
-        for (int i = 0; i < 5; i++) {
-            float angleDeg = static_cast<float>(i) * 72.0f;
-            float angleRad = glm::radians(angleDeg);
-            glm::vec3 bladePos = center + glm::vec3(
-                cos(angleRad) * 0.65f,
-                -0.10f,
-                sin(angleRad) * 0.65f
-            );
-            glm::mat4 bladeModel = Transform::TRS(
-                bladePos,
-                glm::vec3(0.0f, angleDeg, 8.0f),   // 8° tilt
-                glm::vec3(0.70f, 0.04f, 0.20f)      // Long flat blade
-            );
-            m_Objects.push_back({bladeModel, WOOD_MEDIUM,
-                                 prefix + "_blade" + std::to_string(i)});
-        }
+    // Motor housing
+    Add("fan_motor", m_FanCenter, {0.30f, 0.22f, 0.30f}, METAL_DARK);
 
-        // Pendant light hanging below fan
-        Add(prefix + "_rod",   center + glm::vec3(0, -0.40f, 0),   {0.04f, 0.50f, 0.04f}, METAL_DARK);
-        Add(prefix + "_shade", center + glm::vec3(0, -0.70f, 0),   {0.35f, 0.20f, 0.35f}, METAL_DARK);
-    };
+    // 4 blades at 90° apart — rigidly attached to motor
+    for (int i = 0; i < 4; i++) {
+        float angleDeg = static_cast<float>(i) * 90.0f;
 
-    BuildFan("fan_A", {-2.0f, 4.35f,  0.0f});
-    BuildFan("fan_B", { 2.5f, 4.35f, -2.0f});
+        // Build transform: center → rotate → offset → scale
+        // Offset = motor_half(0.15) + blade_half(0.45) = 0.60 — blade starts exactly at motor edge
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, m_FanCenter);
+        model = glm::rotate(model, glm::radians(angleDeg), glm::vec3(0, 1, 0));
+        model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));      // No overlap with motor
+        model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
+        model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
 
-    // Additional pendant clusters (3 in a row, hanging from ceiling)
-    for (int i = 0; i < 3; i++) {
-        float px = -4.0f + i * 4.0f;
-        Add("pendant_rod_" + std::to_string(i),
-            {px, 4.0f, -3.5f}, {0.04f, 0.8f, 0.04f}, METAL_DARK);
-        Add("pendant_shade_" + std::to_string(i),
-            {px, 3.55f, -3.5f}, {0.30f, 0.18f, 0.30f}, METAL_DARK);
+        size_t idx = m_Objects.size();
+        m_Objects.push_back({model, WOOD_MEDIUM, "fan_blade" + std::to_string(i)});
+        m_FanBladeIndices.push_back(idx);
+    }
+}
+
+// =============================================================================
+// UpdateAnimations — Spin fan blades each frame
+// =============================================================================
+void Scene::UpdateAnimations(float deltaTime) {
+    m_FanAngle += m_FanSpeed * deltaTime;
+    if (m_FanAngle > 360.0f) m_FanAngle -= 360.0f;
+
+    for (int i = 0; i < 4; i++) {
+        float bladeAngle = m_FanAngle + static_cast<float>(i) * 90.0f;
+
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, m_FanCenter);
+        model = glm::rotate(model, glm::radians(bladeAngle), glm::vec3(0, 1, 0));
+        model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));
+        model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
+        model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
+
+        m_Objects[m_FanBladeIndices[i]].Transform = model;
     }
 }

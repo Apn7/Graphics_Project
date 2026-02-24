@@ -36,11 +36,18 @@ public:
     // Stats
     size_t GetObjectCount() const { return m_Objects.size(); }
 
-    // TODO Phase 9: Add UpdateAnimations(float deltaTime) method for fan rotation
+    // Update per-frame animations (fan blade rotation)
+    void UpdateAnimations(float deltaTime);
 
 private:
     std::unique_ptr<Mesh> m_CubeMesh;       // Single cube mesh shared by all objects
     std::vector<SceneObject> m_Objects;      // All scene objects
+
+    // Fan animation state
+    float m_FanAngle = 0.0f;                         // Accumulated rotation (degrees)
+    float m_FanSpeed = 120.0f;                        // Degrees per second
+    glm::vec3 m_FanCenter = glm::vec3(0.0f);         // Center of the fan
+    std::vector<size_t> m_FanBladeIndices;            // Indices into m_Objects for the 5 blades
 
     // Helper: adds a SceneObject (no rotation)
     void Add(const std::string& label,
@@ -60,7 +67,6 @@ private:
     void BuildWindows();
     void BuildDoor();
     void BuildWallShelves();
-    void BuildIslandShelf();
     void BuildTables();
     void BuildChairs();
     void BuildCeiling();
