@@ -80,7 +80,7 @@ int main() {
     scene.Build();
 
     // ---- Step 5: Create the camera ----
-    Camera camera(glm::vec3(0.0f, 1.7f, 5.0f), -90.0f, 0.0f);
+    Camera camera(glm::vec3(0.0f, 1.7f, 6.5f), -90.0f, 0.0f);
 
     // ---- Step 6: Initialize input handler ----
     InputHandler::Init(window.GetNativeWindow(), &camera);
@@ -105,6 +105,9 @@ int main() {
 
         // ---- Process input ----
         InputHandler::ProcessContinuousInput(window.GetNativeWindow(), &camera, deltaTime);
+
+        // ---- Update animations (fan rotation) ----
+        scene.UpdateAnimations(deltaTime);
 
         // ---- Check debug mode keys (F1-F4) ----
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F1) == GLFW_PRESS) g_RenderMode = 0;
