@@ -64,9 +64,10 @@ public:
     // LoadAll — Load all project textures at startup
     // =========================================================================
     void LoadAll() {
-        Load("floor",  "textures/floor_tiles.jpg");
-        Load("wall",   "textures/wall_plaster.jpg");
-        Load("wood",   "textures/wood_dark.jpg");
+        Load("floor",   "textures/floor_tiles.jpg");
+        Load("wall",    "textures/wall_plaster.jpg");
+        Load("wood",    "textures/wood_dark.jpg");
+        Load("ceiling", "textures/ceiling.jpg");
 
         // TODO Phase 7: Load("book_spine",   "textures/book_spine.jpg");
         // TODO Phase 7: Load("ceiling_wood", "textures/ceiling_wood.jpg");
