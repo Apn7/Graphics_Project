@@ -142,33 +142,43 @@ void Mesh::SetupMesh(const std::vector<Vertex>& vertices,
 
     // ---- Step 5: Configure vertex attribute pointers ----
     // These tell OpenGL how to interpret the data in the VBO.
+    // Must match the layout qualifiers in the vertex shader.
 
     // Attribute 0: Position (vec3 = 3 floats)
-    // Located at layout(location = 0) in the vertex shader
+    // layout(location = 0) in vec3 aPos;
     glVertexAttribPointer(
         0,                                  // Attribute index (location = 0)
         3,                                  // Number of components (vec3 = 3)
         GL_FLOAT,                           // Data type
         GL_FALSE,                           // Don't normalize
         sizeof(Vertex),                     // Stride: bytes between consecutive vertices
-        (void*)offsetof(Vertex, Position)   // Offset: where Position starts in Vertex struct
+        (void*)offsetof(Vertex, Position)   // Offset: where Position starts in Vertex
     );
     glEnableVertexAttribArray(0);           // Enable attribute 0
 
-    // Attribute 1: Color (vec3 = 3 floats)
-    // Located at layout(location = 1) in the vertex shader
+    // Attribute 1: Normal (vec3 = 3 floats)
+    // layout(location = 1) in vec3 aNormal;
     glVertexAttribPointer(
         1,                                  // Attribute index (location = 1)
         3,                                  // Number of components (vec3 = 3)
         GL_FLOAT,                           // Data type
         GL_FALSE,                           // Don't normalize
         sizeof(Vertex),                     // Stride: same as above
-        (void*)offsetof(Vertex, Color)      // Offset: where Color starts in Vertex struct
+        (void*)offsetof(Vertex, Normal)     // Offset: where Normal starts in Vertex
     );
     glEnableVertexAttribArray(1);           // Enable attribute 1
 
-    // TODO Phase 6: Add attribute 2 — Normal (vec3, location = 2)
-    // TODO Phase 7: Add attribute 3 — TexCoord (vec2, location = 3)
+    // Attribute 2: TexCoord (vec2 = 2 floats)
+    // layout(location = 2) in vec2 aTexCoord;
+    glVertexAttribPointer(
+        2,                                  // Attribute index (location = 2)
+        2,                                  // Number of components (vec2 = 2)
+        GL_FLOAT,                           // Data type
+        GL_FALSE,                           // Don't normalize
+        sizeof(Vertex),                     // Stride: same as above
+        (void*)offsetof(Vertex, TexCoord)   // Offset: where TexCoord starts in Vertex
+    );
+    glEnableVertexAttribArray(2);           // Enable attribute 2
 
     // ---- Step 6: Unbind ----
     // Unbind VBO (safe — VAO already captured the binding)
