@@ -289,71 +289,69 @@ void Scene::BuildBooks() {
 
 
 // =============================================================================
-// BuildTables — 3 reading tables
+// BuildTables — One table per shelf column (X = -4.5, 0, +4.5)
 // =============================================================================
 void Scene::BuildTables() {
-    auto BuildTable = [&](const std::string& prefix, glm::vec3 center) {
-        Add(prefix + "_top",  {center.x, 0.78f, center.z},     {2.4f, 0.10f, 1.2f},   WOOD_TABLE);
-
-        float lx = 1.0f, lz = 0.45f;
-        Add(prefix + "_leg0", {center.x - lx, 0.38f, center.z - lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add(prefix + "_leg1", {center.x + lx, 0.38f, center.z - lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add(prefix + "_leg2", {center.x - lx, 0.38f, center.z + lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add(prefix + "_leg3", {center.x + lx, 0.38f, center.z + lz}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-
-        Add(prefix + "_brace_a", {center.x, 0.12f, center.z}, {2.2f, 0.05f, 0.07f}, WOOD_MEDIUM);
-        Add(prefix + "_brace_b", {center.x, 0.12f, center.z}, {0.07f, 0.05f, 1.0f}, WOOD_MEDIUM);
+    auto BuildTableSet = [&](const std::string& id, float cx) {
+        // Tabletop
+        Add("table_" + id + "_top", {cx, 0.78f, 0.0f}, {2.4f, 0.10f, 1.2f}, WOOD_TABLE);
+        // 4 legs
+        Add("table_" + id + "_leg0", {cx - 1.0f, 0.39f, -0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg1", {cx + 1.0f, 0.39f, -0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg2", {cx - 1.0f, 0.39f, +0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg3", {cx + 1.0f, 0.39f, +0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
     };
 
-    BuildTable("table_0", { 1.0f, 0.0f,  3.5f});   // Front area
-    BuildTable("table_1", { 2.0f, 0.0f,  0.5f});   // Mid area
-    BuildTable("table_2", { 3.0f, 0.0f, -2.5f});   // Back area
+    BuildTableSet("L",  -4.5f);   // Left   — aligned with shelf_back_A / shelf_front_A
+    BuildTableSet("C",   0.0f);   // Center — aligned with shelf_back_B / shelf_front_B
+    BuildTableSet("R",  +4.5f);   // Right  — aligned with shelf_back_C / shelf_front_C
 }
 
 // =============================================================================
-// BuildChairs — Blue-cushioned chairs around each table
+// BuildChairs — 4 chairs per table set (2 per long Z-side), 3 sets
+// =============================================================================
+// Each chair at Z=±1.10 from table center, X=±0.60 from table center
+// facingSign +1 = faces -Z (sits on +Z side, backrest toward +Z)
+// facingSign -1 = faces +Z (sits on -Z side, backrest toward -Z)
 // =============================================================================
 void Scene::BuildChairs() {
-    auto BuildChair = [&](const std::string& prefix, glm::vec3 pos, float yawDeg) {
-        (void)yawDeg;
-
+    auto BuildChair = [&](const std::string& prefix, glm::vec3 pos, float facingSign) {
+        // Seat
         Add(prefix + "_seat_frame", pos + glm::vec3(0, 0.48f, 0),
             {0.50f, 0.05f, 0.50f}, WOOD_MEDIUM);
         Add(prefix + "_cushion", pos + glm::vec3(0, 0.52f, 0),
             {0.44f, 0.06f, 0.44f}, CUSHION_BLUE);
 
-        glm::vec3 backPos = pos + glm::vec3(0, 0.85f, -0.22f);
-        Add(prefix + "_back_frame", backPos, {0.50f, 0.60f, 0.05f}, WOOD_MEDIUM);
-        Add(prefix + "_back_cushion", backPos + glm::vec3(0, 0, 0.03f),
+        // Backrest — behind the sitter (away from table)
+        glm::vec3 backPos = pos + glm::vec3(0, 0.85f, facingSign * 0.22f);
+        Add(prefix + "_back_frame",   backPos,                               {0.50f, 0.60f, 0.05f}, WOOD_MEDIUM);
+        Add(prefix + "_back_cushion", backPos + glm::vec3(0, 0, -facingSign * 0.03f),
             {0.44f, 0.54f, 0.04f}, CUSHION_BLUE);
 
+        // 4 legs
         float lx = 0.20f, lz = 0.20f, legH = 0.48f;
         Add(prefix + "_leg0", pos + glm::vec3(-lx, legH * 0.5f, -lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg1", pos + glm::vec3( lx, legH * 0.5f, -lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg2", pos + glm::vec3(-lx, legH * 0.5f,  lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
         Add(prefix + "_leg3", pos + glm::vec3( lx, legH * 0.5f,  lz), {0.05f, legH, 0.05f}, WOOD_MEDIUM);
 
+        // Armrests
         Add(prefix + "_arm_l", pos + glm::vec3(-0.27f, 0.65f, 0), {0.04f, 0.04f, 0.48f}, WOOD_MEDIUM);
         Add(prefix + "_arm_r", pos + glm::vec3( 0.27f, 0.65f, 0), {0.04f, 0.04f, 0.48f}, WOOD_MEDIUM);
     };
 
-    // Chairs around table_0 (center: 1.0, 0, 3.5)
-    BuildChair("chair_t0_front", { 1.0f, 0.0f, 5.0f},  180.0f);
-    BuildChair("chair_t0_back",  { 1.0f, 0.0f, 2.2f},    0.0f);
-    BuildChair("chair_t0_left",  {-0.5f, 0.0f, 3.5f},   90.0f);
-    BuildChair("chair_t0_right", { 2.5f, 0.0f, 3.5f},  270.0f);
+    auto BuildChairSet = [&](const std::string& id, float cx) {
+        // +Z side: 2 chairs facing -Z (toward table)
+        BuildChair("chair_" + id + "_zp_l", {cx - 0.60f, 0.0f,  1.10f}, +1.0f);
+        BuildChair("chair_" + id + "_zp_r", {cx + 0.60f, 0.0f,  1.10f}, +1.0f);
+        // -Z side: 2 chairs facing +Z (toward table)
+        BuildChair("chair_" + id + "_zn_l", {cx - 0.60f, 0.0f, -1.10f}, -1.0f);
+        BuildChair("chair_" + id + "_zn_r", {cx + 0.60f, 0.0f, -1.10f}, -1.0f);
+    };
 
-    // Chairs around table_1 (center: 2.0, 0, 0.5)
-    BuildChair("chair_t1_front", { 2.0f, 0.0f, 2.0f},  180.0f);
-    BuildChair("chair_t1_back",  { 2.0f, 0.0f, -0.8f},   0.0f);
-    BuildChair("chair_t1_left",  { 0.5f, 0.0f, 0.5f},   90.0f);
-    BuildChair("chair_t1_right", { 3.5f, 0.0f, 0.5f},  270.0f);
-
-    // Chairs around table_2 (center: 3.0, 0, -2.5)
-    BuildChair("chair_t2_front", { 3.0f, 0.0f, -1.0f},  180.0f);
-    BuildChair("chair_t2_back",  { 3.0f, 0.0f, -3.8f},    0.0f);
-    BuildChair("chair_t2_left",  { 1.5f, 0.0f, -2.5f},   90.0f);
-    BuildChair("chair_t2_right", { 4.5f, 0.0f, -2.5f},  270.0f);
+    BuildChairSet("L", -4.5f);   // Left column
+    BuildChairSet("C",  0.0f);   // Center column
+    BuildChairSet("R", +4.5f);   // Right column
 }
 
 // =============================================================================

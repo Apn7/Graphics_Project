@@ -53,6 +53,10 @@ constexpr float FAR_PLANE  = 100.0f;
 // Debug render mode — controlled by F1-F4 keys
 static int g_RenderMode = 0;   // 0 = all, 1 = room, 2 = furniture, 3 = shelves+books
 
+// Polygon debug mode — controlled by F5/F6 keys
+// 0 = fill (normal), 1 = wireframe, 2 = points
+static int g_PolyMode   = 0;
+
 // =============================================================================
 // main — Application entry point
 // =============================================================================
@@ -80,7 +84,7 @@ int main() {
     scene.Build();
 
     // ---- Step 5: Create the camera ----
-    Camera camera(glm::vec3(0.0f, 1.7f, 6.5f), -90.0f, 0.0f);
+    Camera camera(glm::vec3(5.0f, 1.7f, 3.5f), 180.0f, 0.0f);
 
     // ---- Step 6: Initialize input handler ----
     InputHandler::Init(window.GetNativeWindow(), &camera);
@@ -109,22 +113,32 @@ int main() {
         // ---- Update animations (fan rotation) ----
         scene.UpdateAnimations(deltaTime);
 
-        // ---- Check debug mode keys (F1-F4) ----
+        // ---- Check debug mode keys (F1-F4 scene groups, F5 wireframe, F6 points) ----
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F1) == GLFW_PRESS) g_RenderMode = 0;
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F2) == GLFW_PRESS) g_RenderMode = 1;
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F3) == GLFW_PRESS) g_RenderMode = 2;
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F4) == GLFW_PRESS) g_RenderMode = 3;
 
+        // F5 = wireframe toggle, F6 = point toggle (same key again = back to fill)
+        static bool f5Last = false, f6Last = false;
+        bool f5Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F5) == GLFW_PRESS);
+        bool f6Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F6) == GLFW_PRESS);
+        if (f5Now && !f5Last) g_PolyMode = (g_PolyMode == 1) ? 0 : 1;  // toggle wireframe
+        if (f6Now && !f6Last) g_PolyMode = (g_PolyMode == 2) ? 0 : 2;  // toggle points
+        f5Last = f5Now;  f6Last = f6Now;
+
         // ---- Update window title ----
         float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
         glm::vec3 pos = camera.GetPosition();
+        const char* polyModeStr[] = { "Fill", "Wireframe(F5)", "Points(F6)" };
         std::string title = "3D Library | FPS: " + std::to_string(static_cast<int>(fps))
             + " | Pos: ("
             + std::to_string(static_cast<int>(pos.x)) + ", "
             + std::to_string(static_cast<int>(pos.y)) + ", "
             + std::to_string(static_cast<int>(pos.z)) + ")"
             + " | Yaw: " + std::to_string(static_cast<int>(camera.GetYaw()))
-            + " | Objects: " + std::to_string(scene.GetObjectCount());
+            + " | Objects: " + std::to_string(scene.GetObjectCount())
+            + " | Draw: " + polyModeStr[g_PolyMode];
         glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
 
         // ---- Clear screen ----
@@ -136,6 +150,16 @@ int main() {
         glm::mat4 projection = glm::perspective(
             glm::radians(camera.GetFOV()), aspectRatio, NEAR_PLANE, FAR_PLANE
         );
+
+        // ---- Apply polygon mode for debug ----
+        if (g_PolyMode == 1) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        } else if (g_PolyMode == 2) {
+            glPointSize(4.0f);
+            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
 
         // ---- Activate shader and set per-frame uniforms ----
         shader.Use();
@@ -164,6 +188,9 @@ int main() {
                 scene.RenderGroup(shader, "island");
                 break;
         }
+
+        // ---- Reset polygon mode to fill for next frame ----
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         // ---- Swap buffers ----
         window.SwapBuffers();
