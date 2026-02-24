@@ -23,6 +23,9 @@
     <Filter Include="external">
       <UniqueIdentifier>{D1E2F3A4-B5C6-7D8E-9F0A-1B2C3D4E5F6A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\scene">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 
   <!-- ============================================================ -->
@@ -55,6 +58,9 @@
     </ClCompile>
     <ClCompile Include="external\glad\glad.c">
       <Filter>external</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\Scene.cpp">
+      <Filter>src\scene</Filter>
     </ClCompile>
   </ItemGroup>
 
@@ -94,6 +100,15 @@
     </ClInclude>
     <ClInclude Include="src\utils\Transform.h">
       <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\Scene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\SceneObject.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\LibraryColors.h">
+      <Filter>src\scene</Filter>
     </ClInclude>
   </ItemGroup>
 

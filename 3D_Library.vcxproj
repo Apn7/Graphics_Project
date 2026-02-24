@@ -155,6 +155,7 @@
     <ClCompile Include="src\core\InputHandler.cpp" />
     <ClCompile Include="src\renderer\Mesh.cpp" />
     <ClCompile Include="src\renderer\Primitives.cpp" />
+    <ClCompile Include="src\scene\Scene.cpp" />
   </ItemGroup>
   <!-- ============================================================ -->
   <!-- Header Files (.h) — listed for IDE navigation                 -->
@@ -171,6 +172,9 @@
     <ClInclude Include="src\utils\Logger.h" />
     <ClInclude Include="src\utils\FileUtils.h" />
     <ClInclude Include="src\utils\Transform.h" />
+    <ClInclude Include="src\scene\Scene.h" />
+    <ClInclude Include="src\scene\SceneObject.h" />
+    <ClInclude Include="src\scene\LibraryColors.h" />
   </ItemGroup>
   <!-- ============================================================ -->
   <!-- Shader Files — listed so they appear in Solution Explorer     -->
