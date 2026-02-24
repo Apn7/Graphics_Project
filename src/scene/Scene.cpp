@@ -136,23 +136,53 @@ void Scene::BuildRoom() {
 }
 
 // =============================================================================
-// BuildWindows — 2 arched windows flush on inner wall face
+// BuildWindows — Simple rectangular window: glass pane + wooden border on all 4 sides
 // =============================================================================
 void Scene::BuildWindows() {
-    // Windows sit on the INNER face of the wall (inset slightly from wall center)
-    float leftX  = -ROOM_HALF_W + 0.12f;   // Inner face of left wall
-    float rightX =  ROOM_HALF_W - 0.12f;   // Inner face of right wall
+    float leftX  = -ROOM_HALF_W + 0.11f;   // Inner face of left wall
+    float rightX =  ROOM_HALF_W - 0.11f;   // Inner face of right wall
 
-    // --- Left wall window ---
-    Add("window_left_frame", {leftX - 0.02f, 2.8f, -1.5f},  {0.06f, 3.6f, 2.6f},   WINDOW_FRAME);
-    Add("window_left_rect",  {leftX, 2.5f, -1.5f},          {0.08f, 3.0f, 2.2f},   WINDOW_TEAL);
-    Add("window_left_arch",  {leftX, 4.2f, -1.5f},          {0.08f, 1.0f, 1.4f},   WINDOW_TEAL);
+    // Window geometry constants
+    float wZ   = -1.5f;       // Z center of both windows
+    float wCy  = 2.8f;        // Vertical center of glass
+    float gW   = 2.2f;        // Glass width (along Z)
+    float gH   = 2.6f;        // Glass height (along Y)
+    float bT   = 0.15f;        // Border thickness
+    float gT   = 0.06f;        // Glass depth (thin slab)
+    float bD   = 0.10f;        // Border depth (slightly proud of glass)
 
-    // --- Right wall window (mirrored) ---
-    Add("window_right_frame", {rightX + 0.02f, 2.8f, -1.5f}, {0.06f, 3.6f, 2.6f},  WINDOW_FRAME);
-    Add("window_right_rect",  {rightX, 2.5f, -1.5f},         {0.08f, 3.0f, 2.2f},  WINDOW_TEAL);
-    Add("window_right_arch",  {rightX, 4.2f, -1.5f},         {0.08f, 1.0f, 1.4f},  WINDOW_TEAL);
+    // Helper: build one window (glass + 4 borders) at given X face
+    auto BuildWindow = [&](const std::string& name, float wx, float faceSign) {
+        // Glass pane
+        Add(name + "_glass",
+            {wx, wCy, wZ},
+            {gT, gH, gW}, WINDOW_TEAL);
+
+        // Top border
+        Add(name + "_top",
+            {wx - faceSign * 0.01f, wCy + gH * 0.5f + bT * 0.5f, wZ},
+            {bD, bT, gW + bT * 2.0f}, WOOD_DARK);
+
+        // Bottom border
+        Add(name + "_bot",
+            {wx - faceSign * 0.01f, wCy - gH * 0.5f - bT * 0.5f, wZ},
+            {bD, bT, gW + bT * 2.0f}, WOOD_DARK);
+
+        // Left border  (low Z)
+        Add(name + "_left",
+            {wx - faceSign * 0.01f, wCy, wZ - gW * 0.5f - bT * 0.5f},
+            {bD, gH, bT}, WOOD_DARK);
+
+        // Right border (high Z)
+        Add(name + "_right",
+            {wx - faceSign * 0.01f, wCy, wZ + gW * 0.5f + bT * 0.5f},
+            {bD, gH, bT}, WOOD_DARK);
+    };
+
+    BuildWindow("window_left",  leftX,  -1.0f);   // Left wall: face points inward (+X)
+    BuildWindow("window_right", rightX, +1.0f);   // Right wall: face points inward (-X)
 }
+
 
 // =============================================================================
 // BuildDoor — Wooden door on right wall
