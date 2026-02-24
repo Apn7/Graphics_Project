@@ -1,42 +1,47 @@
 // =============================================================================
-// basic.vert — Basic Vertex Shader (OpenGL 3.3 Core)
+// BASIC VERTEX SHADER — Phase 2
 // =============================================================================
-// Transforms vertex positions from model space to clip space using the
-// Model-View-Projection (MVP) matrix chain. Passes vertex color to the
-// fragment shader for interpolation across the triangle.
+// Transforms vertices from object space to clip space via the MVP pipeline.
+// Accepts position, normal, and UV attributes. Passes world-space position,
+// normal, and UVs to the fragment shader for future use.
 //
-// Inputs:
-//   aPos   (location 0) — vertex position in model space (vec3)
-//   aColor (location 1) — vertex color (vec3)
-//
-// Outputs:
-//   vertexColor — interpolated color passed to fragment shader
-//
-// Uniforms:
-//   model      — model matrix (object space → world space)
-//   view       — view matrix (world space → camera space)
-//   projection — projection matrix (camera space → clip space)
+// Normals and UVs are unused visually until Phases 6 & 7, but the layout
+// is established now so the VAO stays compatible across all phases.
 // =============================================================================
 
 #version 330 core
 
-// ---- Vertex Attributes (input from VBO) ----
-layout (location = 0) in vec3 aPos;     // Vertex position
-layout (location = 1) in vec3 aColor;   // Vertex color
+// ---- Vertex Attributes (must match VAO attribute pointers in Mesh) ----
+layout (location = 0) in vec3 aPos;       // Object-space vertex position
+layout (location = 1) in vec3 aNormal;    // Surface normal (for Phase 6 lighting)
+layout (location = 2) in vec2 aTexCoord;  // UV texture coordinate (for Phase 7)
 
-// ---- Output to Fragment Shader ----
-out vec3 vertexColor;   // Will be interpolated across the triangle
+// ---- Outputs to Fragment Shader ----
+out vec3 v_FragPos;     // World-space position (lighting uses this in Phase 6)
+out vec3 v_Normal;      // World-space normal (lighting uses this in Phase 6)
+out vec2 v_TexCoord;    // UV passed through (texture sampling in Phase 7)
 
-// ---- Transformation Matrices (set from C++ code) ----
-uniform mat4 model;         // Positions and orients the object in the world
-uniform mat4 view;          // Positions the camera (inverse of camera transform)
-uniform mat4 projection;    // Defines perspective or orthographic projection
+// ---- Transform Uniforms ----
+uniform mat4 u_Model;       // Object space → World space
+uniform mat4 u_View;        // World space → Camera space
+uniform mat4 u_Projection;  // Camera space → Clip space (perspective)
+
+// TODO Phase 6: Uncomment u_NormalMatrix uniform and use it for correct normals
+// under non-uniform scaling: uniform mat3 u_NormalMatrix;
 
 void main() {
-    // Transform the vertex position through the MVP pipeline:
-    // model → world space, view → camera space, projection → clip space
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    // Compute world-space position (used for lighting in Phase 6)
+    vec4 worldPos = u_Model * vec4(aPos, 1.0);
+    v_FragPos = vec3(worldPos);
 
-    // Pass the color through to the fragment shader (will be interpolated)
-    vertexColor = aColor;
+    // Transform the normal to world space
+    // transpose(inverse(mat3(u_Model))) corrects for non-uniform scaling
+    // In Phase 6, this will be replaced with a CPU-computed u_NormalMatrix
+    v_Normal = mat3(transpose(inverse(u_Model))) * aNormal;
+
+    // Pass UVs through unchanged
+    v_TexCoord = aTexCoord;
+
+    // Final clip-space position for rasterization
+    gl_Position = u_Projection * u_View * worldPos;
 }

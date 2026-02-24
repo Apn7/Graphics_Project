@@ -1,28 +1,28 @@
 // =============================================================================
-// basic.frag — Basic Fragment Shader (OpenGL 3.3 Core)
+// BASIC FRAGMENT SHADER — Phase 2
 // =============================================================================
-// Receives the interpolated vertex color from the vertex shader and outputs
-// it as the final pixel color. This is the simplest possible fragment shader.
-//
-// Inputs:
-//   vertexColor — interpolated color from vertex shader (vec3)
-//
-// Outputs:
-//   FragColor — final pixel color written to the framebuffer (vec4)
-//
-// TODO Phase 6: Add lighting calculations (ambient, diffuse, specular)
-// TODO Phase 7: Add texture sampling and blending
+// Outputs a solid flat color controlled by uniform u_Color and u_Alpha.
+// No lighting. No textures. Just clean, uniform-driven color output.
+// This will be REPLACED in Phase 6 with a full Phong lighting shader.
 // =============================================================================
 
 #version 330 core
 
-// ---- Input from Vertex Shader ----
-in vec3 vertexColor;    // Interpolated color (different for each pixel)
+// ---- Inputs from Vertex Shader ----
+in vec3 v_FragPos;     // World-space position (unused until Phase 6)
+in vec3 v_Normal;      // World-space normal (unused until Phase 6)
+in vec2 v_TexCoord;    // UV coordinates (unused until Phase 7)
 
 // ---- Output ----
-out vec4 FragColor;     // Final color for this pixel (RGBA)
+out vec4 FragColor;    // Final pixel color written to the framebuffer
+
+// ---- Material Uniforms ----
+uniform vec3 u_Color;   // Flat object color — set per object from C++ code
+uniform float u_Alpha;  // Alpha transparency (1.0 = fully opaque)
 
 void main() {
-    // Output the interpolated color with full opacity (alpha = 1.0)
-    FragColor = vec4(vertexColor, 1.0);
+    // Output solid color with alpha
+    FragColor = vec4(u_Color, u_Alpha);
+    // TODO Phase 6: Replace flat color output with Phong lighting model
+    // TODO Phase 7: Multiply by texture sample: texture(u_DiffuseMap, v_TexCoord).rgb
 }
