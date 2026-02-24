@@ -47,6 +47,9 @@
     <ClCompile Include="src\renderer\Mesh.cpp">
       <Filter>src\renderer</Filter>
     </ClCompile>
+    <ClCompile Include="src\renderer\Primitives.cpp">
+      <Filter>src\renderer</Filter>
+    </ClCompile>
     <ClCompile Include="external\glad\glad.c">
       <Filter>external</Filter>
     </ClCompile>
@@ -74,10 +77,16 @@
     <ClInclude Include="src\renderer\Renderer.h">
       <Filter>src\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\renderer\Primitives.h">
+      <Filter>src\renderer</Filter>
+    </ClInclude>
     <ClInclude Include="src\utils\Logger.h">
       <Filter>src\utils</Filter>
     </ClInclude>
     <ClInclude Include="src\utils\FileUtils.h">
+      <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\Transform.h">
       <Filter>src\utils</Filter>
     </ClInclude>
   </ItemGroup>

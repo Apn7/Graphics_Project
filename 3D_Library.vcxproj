@@ -153,6 +153,7 @@
     <ClCompile Include="src\core\Camera.cpp" />
     <ClCompile Include="src\core\ShaderLibrary.cpp" />
     <ClCompile Include="src\renderer\Mesh.cpp" />
+    <ClCompile Include="src\renderer\Primitives.cpp" />
   </ItemGroup>
   <!-- ============================================================ -->
   <!-- Header Files (.h) — listed for IDE navigation                 -->
@@ -164,8 +165,10 @@
     <ClInclude Include="src\core\ShaderLibrary.h" />
     <ClInclude Include="src\renderer\Mesh.h" />
     <ClInclude Include="src\renderer\Renderer.h" />
+    <ClInclude Include="src\renderer\Primitives.h" />
     <ClInclude Include="src\utils\Logger.h" />
     <ClInclude Include="src\utils\FileUtils.h" />
+    <ClInclude Include="src\utils\Transform.h" />
   </ItemGroup>
   <!-- ============================================================ -->
   <!-- Shader Files — listed so they appear in Solution Explorer     -->

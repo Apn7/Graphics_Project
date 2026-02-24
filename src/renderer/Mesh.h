@@ -1,18 +1,11 @@
 // =============================================================================
-// Mesh.h — VAO/VBO/EBO Abstraction (Phase 2)
+// Mesh.h — VAO/VBO/EBO Abstraction (Phase 3)
 // =============================================================================
-// Wraps OpenGL vertex array objects, vertex buffers, and element buffers into
-// a clean, reusable Mesh class. Handles GPU memory allocation and cleanup.
+// Wraps OpenGL vertex array objects, vertex buffers, and element buffers.
+// Handles GPU memory allocation, attribute layout, and cleanup.
 //
-// Phase 2 Update: Vertex struct now uses Position + Normal + TexCoord
-// instead of Position + Color. Color is now set via shader uniform u_Color.
-//
-// Usage:
-//   std::vector<Vertex> vertices = { ... };
-//   std::vector<unsigned int> indices = { ... };
-//   Mesh cube(vertices, indices);
-//   cube.Draw();           // Renders the mesh
-//   cube.Delete();         // Frees GPU memory
+// Phase 3 Update: Added GetVertexCount/GetIndexCount accessors,
+// renamed Delete→Release for clearer ownership semantics.
 // =============================================================================
 
 #pragma once
@@ -21,59 +14,66 @@
 #include <glm/glm.hpp>      // glm::vec3, glm::vec2
 
 // =============================================================================
-// Vertex — Represents a single vertex with all its attributes
+// Vertex — Single vertex format used throughout the entire project
 // =============================================================================
-// Phase 2: Position + Normal + TexCoord
-// The vertex layout matches the shader attribute layout:
+// Matches the shader attribute layout:
 //   location 0 = aPos      (vec3)
 //   location 1 = aNormal   (vec3)
 //   location 2 = aTexCoord (vec2)
 // =============================================================================
 struct Vertex {
-    glm::vec3 Position;     // Vertex position in 3D space (x, y, z)
-    glm::vec3 Normal;       // Surface normal for lighting (Phase 6)
-    glm::vec2 TexCoord;     // Texture coordinates (Phase 7)
+    glm::vec3 Position;     // Object-space XYZ
+    glm::vec3 Normal;       // Outward-facing surface normal (unit vector)
+    glm::vec2 TexCoord;     // UV coordinates (0.0–1.0 range)
 };
 
 class Mesh {
 public:
     // =========================================================================
-    // Constructor — Creates a mesh from vertex and index data
+    // Constructor — Upload geometry to GPU. Call once at construction.
     // =========================================================================
-    Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+    Mesh(const std::vector<Vertex>& vertices,
+         const std::vector<unsigned int>& indices);
 
-    // =========================================================================
-    // Destructor — Automatically cleans up GPU resources
-    // =========================================================================
-    ~Mesh();
-
-    // --- Prevent copying (GPU resources should not be duplicated) ---
+    // --- Prevent accidental copy (OpenGL objects can't be trivially copied) ---
     Mesh(const Mesh&) = delete;
     Mesh& operator=(const Mesh&) = delete;
 
-    // --- Allow move semantics for flexibility ---
+    // --- Allow move (so we can store Meshes in vectors / unique_ptrs) ---
     Mesh(Mesh&& other) noexcept;
     Mesh& operator=(Mesh&& other) noexcept;
 
     // =========================================================================
-    // Draw — Renders the mesh using the currently bound shader
+    // Destructor — Calls Release() to free GPU resources
+    // =========================================================================
+    ~Mesh();
+
+    // =========================================================================
+    // Draw — Bind VAO and issue a draw call
     // =========================================================================
     void Draw() const;
 
     // =========================================================================
-    // Delete — Explicitly frees GPU memory (VAO, VBO, EBO)
+    // Accessors for debug/stats
     // =========================================================================
-    void Delete();
+    unsigned int GetVertexCount() const { return m_VertexCount; }
+    unsigned int GetIndexCount()  const { return m_IndexCount; }
 
 private:
-    unsigned int m_VAO;         // Vertex Array Object — stores attribute layout
-    unsigned int m_VBO;         // Vertex Buffer Object — stores vertex data
-    unsigned int m_EBO;         // Element Buffer Object — stores index data
-    unsigned int m_IndexCount;  // Number of indices (= number of elements to draw)
+    unsigned int m_VAO = 0;          // Vertex Array Object
+    unsigned int m_VBO = 0;          // Vertex Buffer Object
+    unsigned int m_EBO = 0;          // Element Buffer Object
+    unsigned int m_VertexCount = 0;  // Number of vertices uploaded
+    unsigned int m_IndexCount  = 0;  // Number of indices (elements to draw)
 
     // =========================================================================
-    // SetupMesh — Configures VAO, VBO, EBO and vertex attribute pointers
+    // SetupMesh — Creates VAO/VBO/EBO and configures attribute pointers
     // =========================================================================
     void SetupMesh(const std::vector<Vertex>& vertices,
                    const std::vector<unsigned int>& indices);
+
+    // =========================================================================
+    // Release — Delete GPU resources (called by destructor and move assignment)
+    // =========================================================================
+    void Release();
 };
