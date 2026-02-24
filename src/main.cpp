@@ -1,39 +1,31 @@
 // =============================================================================
-// main.cpp — Entry Point for the 3D Library Simulation (Phase 2)
+// main.cpp — Entry Point for the 3D Library Simulation (Phase 3)
 // =============================================================================
-// Demonstrates the Phase 2 shader system:
-//   1. Window creation with OpenGL 3.3 Core Profile
-//   2. ShaderLibrary singleton loads and manages shaders
-//   3. Mesh rendering with Position + Normal + TexCoord vertex layout
-//   4. Camera setup (static, looking at the origin)
-//   5. MVP matrix pipeline using u_Model / u_View / u_Projection uniforms
-//   6. Flat color rendering via u_Color + u_Alpha uniforms
+// Demonstrates the Phase 3 primitives system:
+//   1. Primitives::CreateCube() and Primitives::CreatePlane()
+//   2. Transform::TRS() for building model matrices in one line
+//   3. Multiple objects with different positions, scales, and colors
+//   4. Depth testing with overlapping geometry
 //
-// The result: a wood-brown cube slowly rotating on the Y-axis against
-// a dark navy background.
-//
-// No raw OpenGL calls appear here — everything goes through the abstraction
-// classes (Window, ShaderLibrary, Shader, Camera, Mesh, Renderer).
+// The result: a gray floor plane with 5 colored cubes — including a tall
+// "shelf pillar" and a rotating green cube — proving the primitive system
+// works correctly.
 // =============================================================================
 
 #include "core/Window.h"
 #include "core/ShaderLibrary.h"
 #include "core/Camera.h"
-#include "renderer/Mesh.h"
+#include "renderer/Primitives.h"
 #include "renderer/Renderer.h"
 #include "utils/Logger.h"
+#include "utils/Transform.h"
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>     // glm::perspective, glm::rotate
+#include <glm/gtc/matrix_transform.hpp>
 
-#include <GLFW/glfw3.h>                     // For glfwGetTime() — delta time
-
-#include <vector>
+#include <GLFW/glfw3.h>
 
 // ---- Named Constants ----
-// Per project rules: no magic numbers — use named constants
-
-// Window settings
 constexpr int WINDOW_WIDTH  = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 const std::string WINDOW_TITLE = "3D Library - OpenGL 3.3";
@@ -44,91 +36,15 @@ constexpr float BG_GREEN = 0.07f;
 constexpr float BG_BLUE  = 0.12f;
 
 // Projection settings
-constexpr float FOV_DEGREES  = 45.0f;      // Field of view in degrees
-constexpr float NEAR_PLANE   = 0.1f;       // Near clipping plane
-constexpr float FAR_PLANE    = 100.0f;     // Far clipping plane
-
-// Rotation speed (radians per second)
-constexpr float ROTATION_SPEED = 0.5f;
-
-// Object color — wood-brown (library's dominant color)
-const glm::vec3 CUBE_COLOR = glm::vec3(0.45f, 0.28f, 0.10f);
-constexpr float CUBE_ALPHA = 1.0f;          // Fully opaque
-
-// =============================================================================
-// CreateCubeMesh — Builds a cube with proper normals and UVs
-// =============================================================================
-// Phase 2: Vertices now use Position + Normal + TexCoord (no per-vertex color).
-// Color is controlled via the u_Color uniform in the shader.
-// Each face has its own set of 4 vertices with correct face normals.
-// Total: 24 vertices (4 per face × 6 faces), 36 indices.
-// =============================================================================
-Mesh CreateCubeMesh() {
-    // ---- Define vertices for each face ----
-    // Each face has 4 vertices with the correct outward-facing normal.
-    // TexCoords map [0,1] across each face for future texture mapping.
-    std::vector<Vertex> vertices = {
-        // --- Front face (+Z) --- Normal: (0, 0, 1)
-        {{ -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f }},  // 0: bottom-left
-        {{  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f }},  // 1: bottom-right
-        {{  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f }},  // 2: top-right
-        {{ -0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f }},  // 3: top-left
-
-        // --- Back face (-Z) --- Normal: (0, 0, -1)
-        {{  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f }}, // 4
-        {{ -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f }}, // 5
-        {{ -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f }}, // 6
-        {{  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f }}, // 7
-
-        // --- Left face (-X) --- Normal: (-1, 0, 0)
-        {{ -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f }}, // 8
-        {{ -0.5f, -0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f }}, // 9
-        {{ -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }}, // 10
-        {{ -0.5f,  0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }}, // 11
-
-        // --- Right face (+X) --- Normal: (1, 0, 0)
-        {{  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f }},  // 12
-        {{  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f }},  // 13
-        {{  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }},  // 14
-        {{  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }},  // 15
-
-        // --- Top face (+Y) --- Normal: (0, 1, 0)
-        {{ -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f }},  // 16
-        {{  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }},  // 17
-        {{  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }},  // 18
-        {{ -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }},  // 19
-
-        // --- Bottom face (-Y) --- Normal: (0, -1, 0)
-        {{ -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f }}, // 20
-        {{  0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f }}, // 21
-        {{  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f }}, // 22
-        {{ -0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f }}, // 23
-    };
-
-    // ---- Define the 36 indices (12 triangles, 2 per face) ----
-    std::vector<unsigned int> indices = {
-        // Front face
-         0,  1,  2,    2,  3,  0,
-        // Back face
-         4,  5,  6,    6,  7,  4,
-        // Left face
-         8,  9, 10,   10, 11,  8,
-        // Right face
-        12, 13, 14,   14, 15, 12,
-        // Top face
-        16, 17, 18,   18, 19, 16,
-        // Bottom face
-        20, 21, 22,   22, 23, 20,
-    };
-
-    return Mesh(vertices, indices);
-}
+constexpr float FOV_DEGREES = 60.0f;
+constexpr float NEAR_PLANE  = 0.1f;
+constexpr float FAR_PLANE   = 100.0f;
 
 // =============================================================================
 // main — Application entry point
 // =============================================================================
 int main() {
-    LOG_INFO("=== 3D Library Simulation — Phase 2 ===");
+    LOG_INFO("=== 3D Library Simulation — Phase 3 ===");
     LOG_INFO("Starting application...");
 
     // ---- Step 1: Create the window ----
@@ -146,15 +62,27 @@ int main() {
     ShaderLibrary::Get().LoadAll();
     Shader& shader = ShaderLibrary::Get().GetBasic();
 
-    // ---- Step 4: Create the test cube mesh ----
-    Mesh cube = CreateCubeMesh();
+    // ---- Step 4: Create primitive meshes ----
+    auto cubeMesh  = Primitives::CreateCube();
+    auto planeMesh = Primitives::CreatePlane();
 
-    // ---- Step 5: Create the camera ----
-    Camera camera;
+    // ---- Step 5: Set up the camera (static for now) ----
+    // TODO Phase 4: Replace hardcoded lookAt with Camera::GetViewMatrix()
+    glm::mat4 view = glm::lookAt(
+        glm::vec3(4.0f, 3.0f, 6.0f),   // Eye position
+        glm::vec3(0.0f, 0.0f, 0.0f),   // Look at origin
+        glm::vec3(0.0f, 1.0f, 0.0f)    // Up vector
+    );
 
-    // ---- Step 6: Initialize timing variables for delta time ----
+    // ---- Step 6: Set up projection matrix ----
+    float aspectRatio = static_cast<float>(window.GetWidth()) /
+                        static_cast<float>(window.GetHeight());
+    glm::mat4 projection = glm::perspective(
+        glm::radians(FOV_DEGREES), aspectRatio, NEAR_PLANE, FAR_PLANE
+    );
+
+    // ---- Step 7: Initialize timing ----
     float lastFrameTime = 0.0f;
-    float totalRotation = 0.0f;
 
     LOG_INFO("Entering main render loop...");
 
@@ -167,48 +95,64 @@ int main() {
         float deltaTime = currentTime - lastFrameTime;
         lastFrameTime = currentTime;
 
-        // ---- Poll input/window events ----
+        // ---- Poll events ----
         window.PollEvents();
 
-        // ---- Clear the screen (dark navy background) ----
+        // ---- Clear screen ----
         Renderer::Clear(BG_RED, BG_GREEN, BG_BLUE);
 
-        // ---- Calculate the Model matrix (slow Y-axis rotation) ----
-        totalRotation += ROTATION_SPEED * deltaTime;
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, totalRotation, glm::vec3(0.0f, 1.0f, 0.0f));
-
-        // ---- Get the View matrix from the camera ----
-        glm::mat4 view = camera.GetViewMatrix();
-
-        // ---- Calculate the Projection matrix ----
-        float aspectRatio = static_cast<float>(window.GetWidth()) /
-                            static_cast<float>(window.GetHeight());
-        glm::mat4 projection = glm::perspective(
-            glm::radians(FOV_DEGREES), aspectRatio, NEAR_PLANE, FAR_PLANE
-        );
-
-        // ---- Set shader uniforms ----
+        // ---- Activate shader and set view/projection (once per frame) ----
         shader.Use();
-        shader.SetMat4("u_Model", model);
         shader.SetMat4("u_View", view);
         shader.SetMat4("u_Projection", projection);
-        shader.SetVec3("u_Color", CUBE_COLOR);       // Wood-brown color
-        shader.SetFloat("u_Alpha", CUBE_ALPHA);      // Fully opaque
+        shader.SetFloat("u_Alpha", 1.0f);
 
-        // ---- Draw the cube ----
-        cube.Draw();
+        // ============================================================
+        // Draw scene objects — each with its own transform and color
+        // ============================================================
 
-        // ---- Swap front and back buffers ----
+        // Floor plane — scaled large, light gray
+        shader.SetMat4("u_Model", Transform::TRS({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {10.0f, 1.0f, 8.0f}));
+        shader.SetVec3("u_Color", glm::vec3(0.78f, 0.78f, 0.80f));
+        planeMesh->Draw();
+
+        // Cube 1 — dark brown (shelf color)
+        shader.SetMat4("u_Model", Transform::TRS({-2.0f, 0.5f, 0.0f}));
+        shader.SetVec3("u_Color", glm::vec3(0.35f, 0.20f, 0.08f));
+        cubeMesh->Draw();
+
+        // Cube 2 — cream/white (wall color)
+        shader.SetMat4("u_Model", Transform::TRS({0.0f, 0.5f, 0.0f}));
+        shader.SetVec3("u_Color", glm::vec3(0.92f, 0.90f, 0.85f));
+        cubeMesh->Draw();
+
+        // Cube 3 — navy blue (chair cushion color)
+        shader.SetMat4("u_Model", Transform::TRS({2.0f, 0.5f, 0.0f}));
+        shader.SetVec3("u_Color", glm::vec3(0.12f, 0.18f, 0.55f));
+        cubeMesh->Draw();
+
+        // Cube 4 — tall shelf (non-uniform scale demonstration)
+        shader.SetMat4("u_Model", Transform::TRS({-4.0f, 1.5f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.5f, 3.0f, 0.4f}));
+        shader.SetVec3("u_Color", glm::vec3(0.35f, 0.20f, 0.08f));
+        cubeMesh->Draw();
+
+        // Cube 5 — rotating green cube (confirms deltaTime accumulation)
+        static float angle = 0.0f;
+        angle += 30.0f * deltaTime;
+        shader.SetMat4("u_Model", Transform::TRS({4.0f, 0.5f, 0.0f}, {0.0f, angle, 0.0f}));
+        shader.SetVec3("u_Color", glm::vec3(0.15f, 0.55f, 0.35f));
+        cubeMesh->Draw();
+
+        // ---- Swap buffers ----
         window.SwapBuffers();
 
         // TODO Phase 4: Process keyboard input for camera movement
-        // TODO Phase 5: Replace test cube with Scene objects
+        // TODO Phase 5: Replace demo cubes with full Scene objects
     }
 
     // ---- Cleanup ----
     LOG_INFO("Main loop ended — cleaning up...");
-    cube.Delete();
+    // cubeMesh and planeMesh are unique_ptrs — cleaned up automatically
 
     LOG_INFO("Application exited cleanly");
     return 0;
