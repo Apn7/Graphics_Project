@@ -1,20 +1,26 @@
 // =============================================================================
-// main.cpp — Entry Point for the 3D Library Simulation (Phase 3)
+// main.cpp — Entry Point for the 3D Library Simulation (Phase 4)
 // =============================================================================
-// Demonstrates the Phase 3 primitives system:
-//   1. Primitives::CreateCube() and Primitives::CreatePlane()
-//   2. Transform::TRS() for building model matrices in one line
-//   3. Multiple objects with different positions, scales, and colors
-//   4. Depth testing with overlapping geometry
+// Demonstrates the Phase 4 camera system:
+//   1. Full FPS camera — WASD movement, mouse look, scroll zoom
+//   2. InputHandler — centralized GLFW input (no raw glfwGetKey in main)
+//   3. Live window title with FPS + camera position + yaw
+//   4. Phase 3 demo scene (5 cubes + floor) still intact
 //
-// The result: a gray floor plane with 5 colored cubes — including a tall
-// "shelf pillar" and a rotating green cube — proving the primitive system
-// works correctly.
+// Controls:
+//   WASD      — Move forward/backward/left/right
+//   Q/E       — Fly up/down
+//   Mouse     — Look around
+//   Scroll    — Zoom in/out (FOV)
+//   Left Shift — Sprint (2.5x speed)
+//   Tab       — Toggle cursor capture
+//   ESC       — Exit
 // =============================================================================
 
 #include "core/Window.h"
 #include "core/ShaderLibrary.h"
 #include "core/Camera.h"
+#include "core/InputHandler.h"
 #include "renderer/Primitives.h"
 #include "renderer/Renderer.h"
 #include "utils/Logger.h"
@@ -24,6 +30,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <GLFW/glfw3.h>
+
+#include <string>
 
 // ---- Named Constants ----
 constexpr int WINDOW_WIDTH  = 1280;
@@ -36,15 +44,14 @@ constexpr float BG_GREEN = 0.07f;
 constexpr float BG_BLUE  = 0.12f;
 
 // Projection settings
-constexpr float FOV_DEGREES = 60.0f;
-constexpr float NEAR_PLANE  = 0.1f;
-constexpr float FAR_PLANE   = 100.0f;
+constexpr float NEAR_PLANE = 0.1f;
+constexpr float FAR_PLANE  = 100.0f;
 
 // =============================================================================
 // main — Application entry point
 // =============================================================================
 int main() {
-    LOG_INFO("=== 3D Library Simulation — Phase 3 ===");
+    LOG_INFO("=== 3D Library Simulation — Phase 4 ===");
     LOG_INFO("Starting application...");
 
     // ---- Step 1: Create the window ----
@@ -66,25 +73,17 @@ int main() {
     auto cubeMesh  = Primitives::CreateCube();
     auto planeMesh = Primitives::CreatePlane();
 
-    // ---- Step 5: Set up the camera (static for now) ----
-    // TODO Phase 4: Replace hardcoded lookAt with Camera::GetViewMatrix()
-    glm::mat4 view = glm::lookAt(
-        glm::vec3(4.0f, 3.0f, 6.0f),   // Eye position
-        glm::vec3(0.0f, 0.0f, 0.0f),   // Look at origin
-        glm::vec3(0.0f, 1.0f, 0.0f)    // Up vector
-    );
+    // ---- Step 5: Create the camera (FPS, starting near entrance) ----
+    Camera camera(glm::vec3(0.0f, 1.7f, 5.0f), -90.0f, 0.0f);
 
-    // ---- Step 6: Set up projection matrix ----
-    float aspectRatio = static_cast<float>(window.GetWidth()) /
-                        static_cast<float>(window.GetHeight());
-    glm::mat4 projection = glm::perspective(
-        glm::radians(FOV_DEGREES), aspectRatio, NEAR_PLANE, FAR_PLANE
-    );
+    // ---- Step 6: Initialize input handler ----
+    InputHandler::Init(window.GetNativeWindow(), &camera);
 
     // ---- Step 7: Initialize timing ----
     float lastFrameTime = 0.0f;
 
     LOG_INFO("Entering main render loop...");
+    LOG_INFO("Controls: WASD=move, QE=up/down, Mouse=look, Scroll=zoom, Shift=sprint, Tab=cursor, ESC=exit");
 
     // =========================================================================
     // Main Render Loop
@@ -98,17 +97,39 @@ int main() {
         // ---- Poll events ----
         window.PollEvents();
 
+        // ---- Process input (WASD, sprint, ESC) ----
+        InputHandler::ProcessContinuousInput(window.GetNativeWindow(), &camera, deltaTime);
+
+        // ---- Update window title with live info ----
+        float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+        glm::vec3 pos = camera.GetPosition();
+        std::string title = "3D Library | FPS: " + std::to_string(static_cast<int>(fps))
+            + " | Pos: ("
+            + std::to_string(static_cast<int>(pos.x)) + ", "
+            + std::to_string(static_cast<int>(pos.y)) + ", "
+            + std::to_string(static_cast<int>(pos.z)) + ")"
+            + " | Yaw: " + std::to_string(static_cast<int>(camera.GetYaw()));
+        glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
+
         // ---- Clear screen ----
         Renderer::Clear(BG_RED, BG_GREEN, BG_BLUE);
 
-        // ---- Activate shader and set view/projection (once per frame) ----
+        // ---- Build projection matrix (uses camera's current FOV for zoom) ----
+        float aspectRatio = static_cast<float>(window.GetWidth()) /
+                            static_cast<float>(window.GetHeight());
+        glm::mat4 projection = glm::perspective(
+            glm::radians(camera.GetFOV()), aspectRatio, NEAR_PLANE, FAR_PLANE
+        );
+
+        // ---- Activate shader and set per-frame uniforms ----
         shader.Use();
-        shader.SetMat4("u_View", view);
+        shader.SetMat4("u_View", camera.GetViewMatrix());
         shader.SetMat4("u_Projection", projection);
         shader.SetFloat("u_Alpha", 1.0f);
+        // TODO Phase 6: shader.SetVec3("u_ViewPos", camera.GetPosition());
 
         // ============================================================
-        // Draw scene objects — each with its own transform and color
+        // Draw scene objects
         // ============================================================
 
         // Floor plane — scaled large, light gray
@@ -131,12 +152,12 @@ int main() {
         shader.SetVec3("u_Color", glm::vec3(0.12f, 0.18f, 0.55f));
         cubeMesh->Draw();
 
-        // Cube 4 — tall shelf (non-uniform scale demonstration)
+        // Cube 4 — tall shelf (non-uniform scale)
         shader.SetMat4("u_Model", Transform::TRS({-4.0f, 1.5f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.5f, 3.0f, 0.4f}));
         shader.SetVec3("u_Color", glm::vec3(0.35f, 0.20f, 0.08f));
         cubeMesh->Draw();
 
-        // Cube 5 — rotating green cube (confirms deltaTime accumulation)
+        // Cube 5 — rotating green cube
         static float angle = 0.0f;
         angle += 30.0f * deltaTime;
         shader.SetMat4("u_Model", Transform::TRS({4.0f, 0.5f, 0.0f}, {0.0f, angle, 0.0f}));
@@ -146,14 +167,11 @@ int main() {
         // ---- Swap buffers ----
         window.SwapBuffers();
 
-        // TODO Phase 4: Process keyboard input for camera movement
         // TODO Phase 5: Replace demo cubes with full Scene objects
     }
 
     // ---- Cleanup ----
     LOG_INFO("Main loop ended — cleaning up...");
-    // cubeMesh and planeMesh are unique_ptrs — cleaned up automatically
-
     LOG_INFO("Application exited cleanly");
     return 0;
 }
