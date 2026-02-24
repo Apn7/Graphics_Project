@@ -106,9 +106,44 @@ int main() {
     // ---- Step 8: Initialize timing ----
     float lastFrameTime = 0.0f;
 
+    // ---- Print control guide to console ----
     LOG_INFO("Entering main render loop...");
-    LOG_INFO("Controls: WASD=move, QE=up/down, Mouse=look, Scroll=zoom, Shift=sprint, Tab=cursor");
-    LOG_INFO("Debug: F1-F4=groups, F5=wireframe, F6=points, T/1-5=texture mode, ESC=exit");
+    LOG_INFO("");
+    LOG_INFO("========================================");
+    LOG_INFO("       3D Library — Control Guide       ");
+    LOG_INFO("========================================");
+    LOG_INFO("");
+    LOG_INFO("  MOVEMENT");
+    LOG_INFO("    W / S        — Move forward / backward");
+    LOG_INFO("    A / D        — Strafe left / right");
+    LOG_INFO("    Q / E        — Fly up / down");
+    LOG_INFO("    Left Shift   — Sprint (hold)");
+    LOG_INFO("");
+    LOG_INFO("  CAMERA");
+    LOG_INFO("    Mouse        — Look around");
+    LOG_INFO("    Scroll       — Zoom (change FOV)");
+    LOG_INFO("    Tab          — Toggle mouse cursor");
+    LOG_INFO("");
+    LOG_INFO("  DEBUG VIEWS");
+    LOG_INFO("    F1           — Show all objects (default)");
+    LOG_INFO("    F2           — Room shell only (walls/floor/ceiling)");
+    LOG_INFO("    F3           — Furniture only (tables + chairs)");
+    LOG_INFO("    F4           — Shelves + books only");
+    LOG_INFO("    F5           — Toggle wireframe mode");
+    LOG_INFO("    F6           — Toggle point cloud mode");
+    LOG_INFO("");
+    LOG_INFO("  TEXTURE MODES");
+    LOG_INFO("    1            — Per-object mode (default)");
+    LOG_INFO("    2            — All textured objects: flat color");
+    LOG_INFO("    3            — All textured objects: simple texture");
+    LOG_INFO("    4            — All textured objects: vertex blend");
+    LOG_INFO("    5            — All textured objects: fragment blend");
+    LOG_INFO("    T            — Cycle through texture modes");
+    LOG_INFO("");
+    LOG_INFO("  GENERAL");
+    LOG_INFO("    ESC          — Exit application");
+    LOG_INFO("");
+    LOG_INFO("========================================");
 
     // =========================================================================
     // Main Render Loop

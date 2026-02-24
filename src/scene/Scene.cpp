@@ -557,8 +557,17 @@ void Scene::AssignTextures() {
             obj.BlendFactor = 0.40f;
         }
 
+        // CEILING — Vertex blend (warm tint over ceiling texture)
+        else if (obj.Label == "ceiling") {
+            obj.TextureID   = TextureManager::Get().GetID("ceiling");
+            obj.Mode        = TextureMode::VERTEX_BLEND;
+            obj.UVTileX     = 4.0f;   // Tile 4× across 16-unit width
+            obj.UVTileY     = 3.5f;   // Tile 3.5× across 14-unit depth
+            obj.Color       = LibraryColors::CEILING_WOOD;
+            obj.BlendFactor = 0.30f;  // Subtle tint — mostly texture
+        }
+
         // Everything else remains FLAT_COLOR (Phase 5 behavior unchanged)
-        // TODO Phase 7: Assign textures to bookshelves, books, ceiling, chair frames
     }
 
     LOG_INFO("AssignTextures: Texture modes assigned to scene objects.");
