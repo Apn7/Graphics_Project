@@ -104,10 +104,14 @@ Graphics_Project/
 ├── README.md
 ├── Phase6_TextureMapping.md
 ├── shaders/
-│   ├── basic.vert/.frag
-│   ├── texture_simple.vert/.frag
-│   ├── texture_vertex_blend.vert/.frag
-│   └── texture_fragment_blend.vert/.frag
+│   ├── basic.vert
+│   ├── basic.frag
+│   ├── texture_simple.vert
+│   ├── texture_simple.frag
+│   ├── texture_vertex_blend.vert
+│   ├── texture_vertex_blend.frag
+│   ├── texture_fragment_blend.vert
+│   └── texture_fragment_blend.frag
 ├── textures/
 │   ├── floor_tiles.jpg
 │   ├── wall_plaster.jpg
@@ -177,7 +181,8 @@ Run from project root so relative asset paths resolve:
 ```bash
 cd /path/to/Graphics_Project
 ./build/3DLibrary        # Linux/macOS
-build/Debug/3DLibrary.exe  # Typical VS+CMake Windows output
+build/Debug/3DLibrary.exe  # Windows (multi-config generators like Visual Studio)
+build/3DLibrary.exe        # Windows (single-config generators like Ninja/MinGW)
 ```
 
 ### Visual Studio (Windows)
