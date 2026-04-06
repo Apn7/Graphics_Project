@@ -10,6 +10,7 @@
 
 #include "scene/SceneObject.h"
 #include "scene/TextureMode.h"
+#include "scene/LightState.h"
 
 #include <vector>
 #include <memory>
@@ -45,6 +46,9 @@ public:
 
     // Store camera matrices so Render() can set per-shader uniforms
     void SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection);
+
+    // Phase 7: Upload all LightState uniforms to any given shader (call before Render)
+    static void SetLighting(Shader& shader, const LightState& lights, const glm::vec3& viewPos);
 
     // Stats
     size_t GetObjectCount() const { return m_Objects.size(); }
@@ -88,6 +92,7 @@ private:
     void BuildChairs();
     void BuildCeiling();
     void BuildBooks();
+    void BuildPendantLamps();  // Phase 7: 3 hanging lamps above tables
 
     // Phase 6: Assign textures and modes after Build
     void AssignTextures();

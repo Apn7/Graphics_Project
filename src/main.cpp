@@ -31,6 +31,7 @@
 #include "core/InputHandler.h"
 #include "scene/Scene.h"
 #include "scene/TextureMode.h"
+#include "scene/LightState.h"
 #include "renderer/Renderer.h"
 #include "renderer/TextureManager.h"
 #include "utils/Logger.h"
@@ -65,11 +66,17 @@ static int g_PolyMode   = 0;   // 0 = fill, 1 = wireframe, 2 = points
 // Phase 6: Global texture override — controlled by T / 1-5 keys
 static GlobalTextureOverride g_TexOverride = GlobalTextureOverride::NONE;
 
+// Phase 7: Lighting state — controlled by L, N, I, O, 6, 7, 8
+static LightState g_Lights;
+
+// Phase 7: Fan toggle — controlled by G key
+static bool g_FanOn = true;
+
 // =============================================================================
 // main — Application entry point
 // =============================================================================
 int main() {
-    LOG_INFO("=== 3D Library Simulation — Phase 6 ===");
+    LOG_INFO("=== 3D Library Simulation — Phase 7 (Phong Lighting) ===");
     LOG_INFO("Starting application...");
 
     // ---- Step 1: Create the window ----
@@ -140,6 +147,16 @@ int main() {
     LOG_INFO("    5            — All textured objects: fragment blend");
     LOG_INFO("    T            — Cycle through texture modes");
     LOG_INFO("");
+    LOG_INFO("  LIGHTING");
+    LOG_INFO("    L            — All lights ON/OFF");
+    LOG_INFO("    N            — Day / Night mode toggle");
+    LOG_INFO("    I            — Directional light (sun) ON/OFF");
+    LOG_INFO("    O            — Point lights (pendant lamps) ON/OFF");
+    LOG_INFO("    6            — Ambient component ON/OFF");
+    LOG_INFO("    7            — Diffuse component ON/OFF");
+    LOG_INFO("    8            — Specular component ON/OFF");
+    LOG_INFO("    G            — Ceiling fan ON/OFF");
+    LOG_INFO("");
     LOG_INFO("  GENERAL");
     LOG_INFO("    ESC          — Exit application");
     LOG_INFO("");
@@ -161,7 +178,7 @@ int main() {
         InputHandler::ProcessContinuousInput(window.GetNativeWindow(), &camera, deltaTime);
 
         // ---- Update animations (fan rotation) ----
-        scene.UpdateAnimations(deltaTime);
+        if (g_FanOn) scene.UpdateAnimations(deltaTime);
 
         // ---- Check debug mode keys (F1-F4 scene groups, F5 wireframe, F6 points) ----
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F1) == GLFW_PRESS) g_RenderMode = 0;
@@ -200,6 +217,64 @@ int main() {
         tLast = tNow; k1Last = k1Now; k2Last = k2Now;
         k3Last = k3Now; k4Last = k4Now; k5Last = k5Now;
 
+        // ---- Phase 7: Lighting key handlers (L, N, I, O, 6, 7, 8, G) ----
+        static bool lLast=false, nLast=false, iLast=false, oLast=false;
+        static bool k6Last=false, k7Last=false, k8Last=false, gLast=false;
+
+        bool lNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_L) == GLFW_PRESS);
+        bool nNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_N) == GLFW_PRESS);
+        bool iNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_I) == GLFW_PRESS);
+        bool oNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_O) == GLFW_PRESS);
+        bool k6Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_6) == GLFW_PRESS);
+        bool k7Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_7) == GLFW_PRESS);
+        bool k8Now = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_8) == GLFW_PRESS);
+        bool gNow  = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_G) == GLFW_PRESS);
+
+        if (lNow  && !lLast)  {
+            g_Lights.GlobalOn = !g_Lights.GlobalOn;
+            LOG_INFO(std::string("Lights: ") + (g_Lights.GlobalOn ? "ON" : "OFF"));
+        }
+        if (nNow  && !nLast)  {
+            g_Lights.NightMode = !g_Lights.NightMode;
+            if (g_Lights.NightMode) {
+                g_Lights.DirLightColor     = g_Lights.NightDirColor;
+                g_Lights.DirLightIntensity = g_Lights.NightDirIntensity;
+                g_Lights.AmbientStrength   = g_Lights.NightAmbientStr;
+                LOG_INFO("Night mode ON");
+            } else {
+                g_Lights.DirLightColor     = g_Lights.DayDirColor;
+                g_Lights.DirLightIntensity = g_Lights.DayDirIntensity;
+                g_Lights.AmbientStrength   = g_Lights.DayAmbientStr;
+                LOG_INFO("Day mode ON");
+            }
+        }
+        if (iNow  && !iLast)  {
+            g_Lights.DirLightOn = !g_Lights.DirLightOn;
+            LOG_INFO(std::string("Directional light: ") + (g_Lights.DirLightOn ? "ON" : "OFF"));
+        }
+        if (oNow  && !oLast)  {
+            g_Lights.PointLightsOn = !g_Lights.PointLightsOn;
+            LOG_INFO(std::string("Point lights: ") + (g_Lights.PointLightsOn ? "ON" : "OFF"));
+        }
+        if (k6Now && !k6Last) {
+            g_Lights.AmbientOn = !g_Lights.AmbientOn;
+            LOG_INFO(std::string("Ambient: ") + (g_Lights.AmbientOn ? "ON" : "OFF"));
+        }
+        if (k7Now && !k7Last) {
+            g_Lights.DiffuseOn = !g_Lights.DiffuseOn;
+            LOG_INFO(std::string("Diffuse: ") + (g_Lights.DiffuseOn ? "ON" : "OFF"));
+        }
+        if (k8Now && !k8Last) {
+            g_Lights.SpecularOn = !g_Lights.SpecularOn;
+            LOG_INFO(std::string("Specular: ") + (g_Lights.SpecularOn ? "ON" : "OFF"));
+        }
+        if (gNow  && !gLast)  {
+            g_FanOn = !g_FanOn;
+            LOG_INFO(std::string("Fan: ") + (g_FanOn ? "ON" : "OFF"));
+        }
+        lLast=lNow; nLast=nNow; iLast=iNow; oLast=oNow;
+        k6Last=k6Now; k7Last=k7Now; k8Last=k8Now; gLast=gNow;
+
         // ---- Update window title ----
         float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
         glm::vec3 pos = camera.GetPosition();
@@ -216,7 +291,8 @@ int main() {
             + std::to_string(static_cast<int>(pos.z)) + ")"
             + " | Objs: " + std::to_string(scene.GetObjectCount())
             + " | Poly: " + polyModeStr[g_PolyMode]
-            + " | Tex: " + texLabel;
+            + " | Tex: " + texLabel
+            + " | Light: " + (g_Lights.GlobalOn ? (g_Lights.NightMode ? "Night" : "Day") : "Off");
         glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
 
         // ---- Clear screen ----
@@ -241,6 +317,13 @@ int main() {
 
         // ---- Phase 6: Set camera matrices for multi-shader render ----
         scene.SetCameraMatrices(camera.GetViewMatrix(), projection);
+
+        // ---- Phase 7: Upload lighting uniforms to all 4 shaders ----
+        glm::vec3 camPos = camera.GetPosition();
+        Scene::SetLighting(flatShader,     g_Lights, camPos);
+        Scene::SetLighting(simpleShader,   g_Lights, camPos);
+        Scene::SetLighting(vertexShader,   g_Lights, camPos);
+        Scene::SetLighting(fragmentShader, g_Lights, camPos);
 
         // ---- Render scene ----
         switch (g_RenderMode) {

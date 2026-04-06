@@ -168,3 +168,6 @@ $RECYCLE.BIN/
 
 # Gemini
 .gemini/
+
+# Agents
+.agents/
