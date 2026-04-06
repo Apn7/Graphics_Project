@@ -89,6 +89,9 @@ void Scene::Build() {
     BuildChairs();
     BuildCeiling();
 
+    // Phase 7: pendant lamps
+    BuildPendantLamps();
+
     // Phase 6: assign textures and modes
     AssignTextures();
 
@@ -174,6 +177,50 @@ void Scene::Render(Shader& flatShader,
 void Scene::SetCameraMatrices(const glm::mat4& view, const glm::mat4& projection) {
     m_View       = view;
     m_Projection = projection;
+}
+
+// =============================================================================
+// SetLighting — Upload all LightState uniforms to a shader (Phase 7)
+// =============================================================================
+// Call this for EVERY active shader once per frame, BEFORE Render().
+// The shader must be bound (shader.Use()) or it won't receive the uniforms.
+// =============================================================================
+void Scene::SetLighting(Shader& shader, const LightState& lights, const glm::vec3& viewPos)
+{
+    shader.Use();
+
+    // Global toggles
+    shader.SetBool ("u_LightsOn",         lights.GlobalOn);
+    shader.SetBool ("u_AmbientOn",        lights.AmbientOn);
+    shader.SetBool ("u_DiffuseOn",        lights.DiffuseOn);
+    shader.SetBool ("u_SpecularOn",       lights.SpecularOn);
+
+    // Camera position (for specular reflection)
+    shader.SetVec3 ("u_ViewPos",          viewPos);
+
+    // Material defaults
+    shader.SetFloat("u_AmbientStrength",  lights.AmbientStrength);
+    shader.SetFloat("u_Shininess",        lights.Shininess);
+    shader.SetFloat("u_SpecularStrength", lights.SpecularStrength);
+
+    // Directional light
+    shader.SetBool ("u_DirLightOn",        lights.DirLightOn);
+    shader.SetVec3 ("u_DirLightDir",       lights.DirLightDir);
+    shader.SetVec3 ("u_DirLightColor",     lights.DirLightColor);
+    shader.SetFloat("u_DirLightIntensity", lights.DirLightIntensity);
+
+    // Point lights
+    shader.SetBool ("u_PointLightsOn", lights.PointLightsOn);
+    for (int i = 0; i < LightState::NUM_POINT_LIGHTS; i++) {
+        shader.SetVec3("u_PointLightPos["   + std::to_string(i) + "]",
+                       lights.PointLights[i].Position);
+        shader.SetVec3("u_PointLightColor[" + std::to_string(i) + "]",
+                       lights.PointLights[i].Color);
+    }
+    // Attenuation coefficients (same for all point lights)
+    shader.SetFloat("u_PointConstant",  lights.PointLights[0].Constant);
+    shader.SetFloat("u_PointLinear",    lights.PointLights[0].Linear);
+    shader.SetFloat("u_PointQuadratic", lights.PointLights[0].Quadratic);
 }
 
 void Scene::RenderGroup(Shader& shader, const std::string& groupPrefix) {
@@ -572,3 +619,42 @@ void Scene::AssignTextures() {
 
     LOG_INFO("AssignTextures: Texture modes assigned to scene objects.");
 }
+
+// =============================================================================
+// BuildPendantLamps — 3 hanging pendant lights above tables (Phase 7)
+// =============================================================================
+// Each lamp has:
+//   - A thin cord from ceiling to shade
+//   - A lamp shade (tapered-look cuboid)
+//   - A small bright bulb cube (emissive look)
+// X positions match the 3 table columns: -4.5, 0, +4.5
+// Point light sources (in LightState) are positioned at Y=4.8 matching bulb pos.
+// =============================================================================
+void Scene::BuildPendantLamps() {
+    auto BuildLamp = [&](const std::string& id, float cx) {
+        // Cord — thin vertical rod from ceiling to shade
+        Add("lamp_" + id + "_cord",
+            {cx, 5.3f, 0.0f},
+            {0.03f, 0.4f, 0.03f},
+            glm::vec3(0.15f, 0.12f, 0.10f));   // Dark brown
+
+        // Shade — wide flat box representing lampshade
+        Add("lamp_" + id + "_shade",
+            {cx, 4.95f, 0.0f},
+            {0.40f, 0.18f, 0.40f},
+            glm::vec3(0.55f, 0.45f, 0.25f));   // Warm tan/brass
+
+        // Bulb — tiny bright cube (warm yellow glow appearance)
+        Add("lamp_" + id + "_bulb",
+            {cx, 4.88f, 0.0f},
+            {0.10f, 0.08f, 0.10f},
+            glm::vec3(1.0f, 0.95f, 0.70f));    // Warm bright yellow
+    };
+
+    BuildLamp("L", -4.5f);
+    BuildLamp("C",  0.0f);
+    BuildLamp("R", +4.5f);
+
+    LOG_INFO("BuildPendantLamps: 3 pendant lamps added above tables.");
+}
+
