@@ -34,6 +34,15 @@ static constexpr float ROOM_HALF_W  = 12.0f;  // X: -12 to +12 (width=24)
 static constexpr float ROOM_HALF_D  = 10.0f;  // Z: -10 to +10 (depth=20)
 static constexpr float ROOM_HEIGHT  = 6.0f;   // Y: 0 to 6
 static constexpr float WALL_THICK   = 0.2f;
+static const glm::vec3 LIBRARIAN_DESK_CENTER(7.5f, 0.0f, 6.0f);
+
+static glm::mat4 RotateAroundPivotY(const glm::vec3& pivot, float degrees)
+{
+    glm::mat4 transform = glm::translate(glm::mat4(1.0f), pivot);
+    transform = glm::rotate(transform, glm::radians(degrees), glm::vec3(0.0f, 1.0f, 0.0f));
+    transform = glm::translate(transform, -pivot);
+    return transform;
+}
 
 // =============================================================================
 // Constructor / Destructor
@@ -1262,8 +1271,8 @@ void Scene::BuildCurvedObjects() {
 
     // ---- 5. STUDY LAMP SHADE (cone) — desk lamp on librarian desk ----
     // Physical lamp model built in BuildLibrarianDesk() (cube arms + base).
-    // This is the cone shade only: rotated 180° around X so apex faces UP,
-    // opening faces DOWN — the cone's opening is the light emitting face.
+    // The shade is tilted toward the reading surface so the head and spot beam
+    // visually align with the upper arm and desk target area.
     // Position: (8.80, 1.71, 5.50) — tip of the upper lamp arm.
     {
         CurvedObject shade;
@@ -1271,7 +1280,7 @@ void Scene::BuildCurvedObjects() {
         shade.Color   = vec3(0.16f, 0.16f, 0.18f);  // Dark metal shade
         shade.Mode    = TextureMode::FLAT_COLOR;
         shade.Transform = translate(mat4(1.0f), vec3(8.80f, 1.71f, 5.50f))
-                        * rotate(mat4(1.0f), radians(180.0f), vec3(1.0f, 0.0f, 0.0f))
+                        * rotate(mat4(1.0f), radians(-20.0f), vec3(0.0f, 0.0f, 1.0f))
                         * scale(mat4(1.0f), vec3(0.20f, 0.14f, 0.20f));
         shade.Mesh    = Primitives::CreateCone(32);
         m_CurvedObjects.push_back(std::move(shade));
@@ -1513,9 +1522,12 @@ void Scene::BuildFractalTree() {
 //   6. Executive chair behind the desk (dark green leather, high backrest)
 //   7. Papers, open book, and stacked reference books on desk surface
 //   8. Study lamp (arm + base — cone shade is a CurvedObject in BuildCurvedObjects)
-//      Spotlight source sits inside the cone at Y=1.63.
+//      Spotlight source sits inside the tilted cone near Y=1.67.
 // =============================================================================
 void Scene::BuildLibrarianDesk() {
+    const size_t deskBodyStart = m_Objects.size();
+    const glm::mat4 deskBodyRotation = RotateAroundPivotY(LIBRARIAN_DESK_CENTER, 180.0f);
+
     // Colors
     const glm::vec3 maho    = WOOD_MAHOGANY;
     const glm::vec3 trim    = DESK_TRIM;
@@ -1566,6 +1578,12 @@ void Scene::BuildLibrarianDesk() {
     Add("desk_leg_FR", {9.65f, legY, 5.25f}, {legW, legH, legW}, WOOD_DARK);
     Add("desk_leg_BL", {5.35f, legY, 6.75f}, {legW, legH, legW}, WOOD_DARK);
     Add("desk_leg_BR", {9.65f, legY, 6.75f}, {legW, legH, legW}, WOOD_DARK);
+
+    const size_t deskBodyEnd = m_Objects.size();
+    for (size_t i = deskBodyStart; i < deskBodyEnd; ++i) {
+        m_Objects[i].Transform = deskBodyRotation * m_Objects[i].Transform;
+        m_Objects[i].OriginalTransform = deskBodyRotation * m_Objects[i].OriginalTransform;
+    }
 
     // ---- 6. Executive chair ----
     // Chair sits at Z=7.55 (0.65 behind desk back edge 6.90), facing -Z (toward desk).
