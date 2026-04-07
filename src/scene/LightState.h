@@ -63,6 +63,20 @@ struct LightState {
         { glm::vec3(+4.0f, 4.8f, +6.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 2 Right
     };
 
+    // ---- Spot Light (librarian's study lamp on the desk) ----
+    // Toggle: Key 3.  Cutoff angles stored as cosines for efficient dot-product compare.
+    //   SpotCutoff      = cos(20°) ≈ 0.9397  — inner bright cone
+    //   SpotOuterCutoff = cos(28°) ≈ 0.8829  — outer edge (smooth penumbra)
+    bool      SpotLightOn      = true;
+    glm::vec3 SpotLightPos     = glm::vec3(8.80f, 1.63f, 5.50f);  // Inside lamp head
+    glm::vec3 SpotLightDir     = glm::vec3(0.0f, -1.0f, 0.0f);    // Pointing straight down
+    glm::vec3 SpotLightColor   = glm::vec3(1.0f, 0.92f, 0.75f);   // Warm incandescent
+    float     SpotCutoff       = 0.9397f;   // cos(20°)
+    float     SpotOuterCutoff  = 0.8829f;   // cos(28°)
+    float     SpotConstant     = 1.0f;
+    float     SpotLinear       = 0.22f;
+    float     SpotQuadratic    = 0.20f;
+
     // ---- Material defaults (applied to all objects uniformly) ----
     float AmbientStrength   = 0.18f;
     float Shininess         = 32.0f;

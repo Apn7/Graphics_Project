@@ -100,6 +100,9 @@ void Scene::Build() {
     // Phase 9: fractal plant growing from the vase
     BuildFractalTree();
 
+    // Phase 10: Librarian desk (posh desk + exec chair + study lamp)
+    BuildLibrarianDesk();
+
     // Phase 6: assign textures and modes
     AssignTextures();
 
@@ -270,6 +273,17 @@ void Scene::SetLighting(Shader& shader, const LightState& lights, const glm::vec
     shader.SetFloat("u_PointConstant",  lights.PointLights[0].Constant);
     shader.SetFloat("u_PointLinear",    lights.PointLights[0].Linear);
     shader.SetFloat("u_PointQuadratic", lights.PointLights[0].Quadratic);
+
+    // Spot light (study lamp on librarian desk)
+    shader.SetBool ("u_SpotLightOn",      lights.SpotLightOn);
+    shader.SetVec3 ("u_SpotLightPos",     lights.SpotLightPos);
+    shader.SetVec3 ("u_SpotLightDir",     lights.SpotLightDir);
+    shader.SetVec3 ("u_SpotLightColor",   lights.SpotLightColor);
+    shader.SetFloat("u_SpotCutoff",       lights.SpotCutoff);
+    shader.SetFloat("u_SpotOuterCutoff",  lights.SpotOuterCutoff);
+    shader.SetFloat("u_SpotConstant",     lights.SpotConstant);
+    shader.SetFloat("u_SpotLinear",       lights.SpotLinear);
+    shader.SetFloat("u_SpotQuadratic",    lights.SpotQuadratic);
 }
 
 void Scene::RenderGroup(Shader& shader, const std::string& groupPrefix) {
@@ -597,7 +611,8 @@ void Scene::BuildWallShelves() {
 
     BuildMediumShelfFront(-7.5f, "shelf_front_A");
     BuildMediumShelfFront( 0.0f, "shelf_front_B");
-    BuildMediumShelfFront( 7.5f, "shelf_front_C");
+    // Front-right replaced by librarian desk
+    // BuildMediumShelfFront( 7.5f, "shelf_front_C");
 }
 
 
@@ -658,7 +673,8 @@ void Scene::BuildBooks() {
 
     FillMediumShelfFront(-7.5f, "books_front_A");
     FillMediumShelfFront( 0.0f, "books_front_B");
-    FillMediumShelfFront( 7.5f, "books_front_C");
+    // Front-right replaced by librarian desk
+    // FillMediumShelfFront( 7.5f, "books_front_C");
 }
 
 
@@ -689,7 +705,7 @@ void Scene::BuildTables() {
     // Front row (Z=+6) — under fans at Z=+6
     BuildTableSet("Lf",  -7.5f, +6.0f);
     BuildTableSet("Cf",   0.0f, +6.0f);
-    BuildTableSet("Rf",  +7.5f, +6.0f);
+    // BuildTableSet("Rf",  +7.5f, +6.0f); // Replaced by Librarian Desk
 }
 
 // =============================================================================
@@ -747,7 +763,7 @@ void Scene::BuildChairs() {
     // Front row (Z=+6) — under fans at Z=+6
     BuildChairSet("Lf",  -7.5f, +6.0f);
     BuildChairSet("Cf",   0.0f, +6.0f);
-    BuildChairSet("Rf",  +7.5f, +6.0f);
+    // BuildChairSet("Rf",  +7.5f, +6.0f); // Replaced by Librarian Desk
 }
 
 // =============================================================================
@@ -852,7 +868,8 @@ void Scene::UpdateAnimations(float fanDeltaTime, float globalDeltaTime) {
     for (auto& obj : m_CurvedObjects) {
         if (obj.Label == "globe") {
             using namespace glm;
-            obj.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+            // Globe now on librarian desk: (gx=6.1, Y=1.46, gz=5.65)
+            obj.Transform = translate(mat4(1.0f), vec3(6.1f, 1.46f, 5.65f))
                           * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
                           * rotate(mat4(1.0f), radians(m_GlobeAngle), vec3(0.0f, 1.0f, 0.0f))
                           * scale(mat4(1.0f), vec3(0.28f, 0.28f, 0.28f));
@@ -1131,17 +1148,20 @@ void Scene::BuildPendantLamps() {
 void Scene::BuildCurvedObjects() {
     using namespace glm;
 
-    // ---- 1. GLOBE (textured sphere) on the center reading table ----
-    // Table top Y = 0.83 (table center 0.78 + half-height 0.05).
-    // Globe radius = 0.28. Center Y = 1.33 (lifted up to sit on a stand).
+    // ---- 1. GLOBE (textured sphere) — now on the librarian desk ----
+    // Desk top Y = 0.96 (desk center 0.90 + half 0.06).
+    // Globe sits at (gx=6.1, gz=5.65) — left-front quadrant of the desk.
+    // Y offset from original table (top 0.83): +0.13 → globe center = 1.46.
     // Globe is tilted 23.5° (Earth's axial tilt) and rotates around its tilted axis.
     {
+        const float gx = 6.1f, gz = 5.65f;
+
         CurvedObject globe;
         globe.Label     = "globe";
         globe.Color     = vec3(0.3f, 0.5f, 0.8f);  // Ocean blue fallback
         globe.Mode      = TextureMode::SIMPLE_TEXTURE;
         globe.TextureID = TextureManager::Get().GetID("earth");
-        globe.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+        globe.Transform = translate(mat4(1.0f), vec3(gx, 1.46f, gz))
                         * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
                         * scale(mat4(1.0f), vec3(0.28f, 0.28f, 0.28f));
         globe.Mesh      = Primitives::CreateSphere(40, 40);
@@ -1149,54 +1169,48 @@ void Scene::BuildCurvedObjects() {
     }
 
     // ---- 2. GLOBE STAND — Realistic curved meridian stand ----
-    // Base disc — smooth circular plate sitting on the table
-    // A squashed sphere works brilliantly as a rounded disc.
+    // Sits on librarian desk at (gx, gz). Y shifted +0.13 from original table.
     {
-        const glm::vec3 standDark(0.18f, 0.15f, 0.14f);  // Near-black charcoal/metal
+        const float gx = 6.1f, gz = 5.65f;
+        const glm::vec3 standDark(0.18f, 0.15f, 0.14f);
 
         CurvedObject base;
         base.Label     = "globe_stand_base";
         base.Color     = standDark;
         base.Mode      = TextureMode::FLAT_COLOR;
-        base.Transform = translate(mat4(1.0f), vec3(0.0f, 0.85f, 0.0f))
+        base.Transform = translate(mat4(1.0f), vec3(gx, 0.98f, gz))
                        * scale(mat4(1.0f), vec3(0.20f, 0.02f, 0.20f));
         base.Mesh      = Primitives::CreateSphere(16, 24);
         m_CurvedObjects.push_back(std::move(base));
 
-        // Connective vertical rod from base to the meridian arm
-        // Base is at Y=0.85. Lowest point of the 0.30 radius arm is roughly Y=1.33-0.30=1.03. Center ~0.94
-        Add("globe_stand_pole", {0.0f, 0.94f, 0.0f}, {0.025f, 0.18f, 0.025f}, standDark);
+        // Vertical rod: from base top (0.99) to meridian arm bottom (1.46-0.30=1.16). Center=1.07.
+        Add("globe_stand_pole", {gx, 1.07f, gz}, {0.025f, 0.18f, 0.025f}, standDark);
 
-        // Curved Meridian Ring — spans 180 degrees from South Pole to North Pole.
-        // It is a half-torus centered at the globe's center, titled by -23.5° just like the globe.
+        // Curved Meridian Ring — centered at globe center, tilted -23.5°.
         CurvedObject arm;
         arm.Label     = "globe_stand_meridian";
         arm.Color     = standDark;
         arm.Mode      = TextureMode::FLAT_COLOR;
-        // The half torus is created in the XY plane spanning -Y to +Y on the +X side.
-        // We translate it to the globe center (0, 1.33, 0) and tilt it around Z by -23.5°.
-        arm.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+        arm.Transform = translate(mat4(1.0f), vec3(gx, 1.46f, gz))
                       * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f));
-        arm.Mesh      = Primitives::CreateHalfTorus(0.30f, 0.015f, 16, 32);  // Radius 0.30 tightly hugs the 0.28 globe
+        arm.Mesh      = Primitives::CreateHalfTorus(0.30f, 0.015f, 16, 32);
         m_CurvedObjects.push_back(std::move(arm));
 
-        // Let's add tiny pins for the poles connecting the ring to the globe.
         // North Pole pin
-        glm::mat4 np = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+        glm::mat4 np = translate(mat4(1.0f), vec3(gx, 1.46f, gz))
                      * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
                      * translate(mat4(1.0f), vec3(0.0f, 0.29f, 0.0f))
                      * scale(mat4(1.0f), vec3(0.012f, 0.02f, 0.012f));
-        Add("globe_stand_pin_n", np[3], {0.012f, 0.02f, 0.012f}, standDark);
-        // We override the push_back transform to get the exact rotated position
+        Add("globe_stand_pin_n", glm::vec3(np[3]), {0.012f, 0.02f, 0.012f}, standDark);
         m_Objects.back().Transform = np;
         m_Objects.back().OriginalTransform = np;
 
         // South Pole pin
-        glm::mat4 sp = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+        glm::mat4 sp = translate(mat4(1.0f), vec3(gx, 1.46f, gz))
                      * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
                      * translate(mat4(1.0f), vec3(0.0f, -0.29f, 0.0f))
                      * scale(mat4(1.0f), vec3(0.012f, 0.02f, 0.012f));
-        Add("globe_stand_pin_s", sp[3], {0.012f, 0.02f, 0.012f}, standDark);
+        Add("globe_stand_pin_s", glm::vec3(sp[3]), {0.012f, 0.02f, 0.012f}, standDark);
         m_Objects.back().Transform = sp;
         m_Objects.back().OriginalTransform = sp;
     }
@@ -1221,20 +1235,18 @@ void Scene::BuildCurvedObjects() {
         }
     }
 
-    // ---- 4. DECORATIVE BEZIER VASES — one by door center + two flanking the door frame ----
+    // ---- 4. DECORATIVE BEZIER VASES — two flanking the door frame ----
     // All vases: scale (0.42, 1.2, 0.42) → belly ~0.21 world radius, lip at Y=1.2.
     // Fractal trees start at lip Y=1.2 for each vase.
     //
     // Door opening: Z ∈ [2.5, 4.5] on the right wall (X=+8).
-    //   vase_door     — Z=3.5 (door center, slightly inside room at X=6.2)
     //   vase_door_lo  — Z=1.8 (low-Z flank, just below door frame)
     //   vase_door_hi  — Z=5.2 (high-Z flank, just above door frame)
     {
         struct VaseDef { const char* label; float x, z; };
         const VaseDef vaseDefs[] = {
-            { "vase_door",    6.2f, 3.5f },
-            { "vase_door_lo", 6.8f, 1.8f },
-            { "vase_door_hi", 6.8f, 5.2f },
+            { "vase_door_lo", 11.5f, 1.8f },
+            { "vase_door_hi", 11.5f, 5.2f },
         };
         for (const auto& v : vaseDefs) {
             CurvedObject vase;
@@ -1248,7 +1260,24 @@ void Scene::BuildCurvedObjects() {
         }
     }
 
-    LOG_INFO("BuildCurvedObjects: globe, 6 lamp cones, 3 vases created.");
+    // ---- 5. STUDY LAMP SHADE (cone) — desk lamp on librarian desk ----
+    // Physical lamp model built in BuildLibrarianDesk() (cube arms + base).
+    // This is the cone shade only: rotated 180° around X so apex faces UP,
+    // opening faces DOWN — the cone's opening is the light emitting face.
+    // Position: (8.80, 1.71, 5.50) — tip of the upper lamp arm.
+    {
+        CurvedObject shade;
+        shade.Label   = "desk_lamp_shade";
+        shade.Color   = vec3(0.16f, 0.16f, 0.18f);  // Dark metal shade
+        shade.Mode    = TextureMode::FLAT_COLOR;
+        shade.Transform = translate(mat4(1.0f), vec3(8.80f, 1.71f, 5.50f))
+                        * rotate(mat4(1.0f), radians(180.0f), vec3(1.0f, 0.0f, 0.0f))
+                        * scale(mat4(1.0f), vec3(0.20f, 0.14f, 0.20f));
+        shade.Mesh    = Primitives::CreateCone(32);
+        m_CurvedObjects.push_back(std::move(shade));
+    }
+
+    LOG_INFO("BuildCurvedObjects: globe, 6 lamp cones, 2 vases, 1 desk lamp shade created.");
 }
 
 // =============================================================================
@@ -1265,15 +1294,14 @@ void Scene::BuildCurvedObjects() {
 // directions — producing a self-similar fern frond that visibly shows the
 // fractal branching at the leaf scale, not just cubes.
 //
-// Three vases, all scale (0.42, 1.2, 0.42) → lip at world Y = 1.2:
-//   vase_door     (6.2, 0, 3.5) — door center
-//   vase_door_lo  (6.8, 0, 1.8) — low-Z door flank
-//   vase_door_hi  (6.8, 0, 5.2) — high-Z door flank
+// Two vases, all scale (0.42, 1.2, 0.42) → lip at world Y = 1.2:
+//   vase_door_lo  (7.6, 0, 1.8) — low-Z door flank
+//   vase_door_hi  (7.6, 0, 5.2) — high-Z door flank
 //
 // Object count per plant (smaller trunk: len=0.30, thick=0.036):
 //   Main branches (depth 5 tree): 31
 //   Fronds per terminal (depth 2): 3 mini-branches + 8 flat leaf blades = 11
-//   Per plant: 31 + 32 × 11 = 383  |  3 plants total: ~1149 objects
+//   Per plant: 31 + 32 × 11 = 383  |  2 plants total: ~766 objects
 // =============================================================================
 void Scene::BuildFractalTree() {
     using namespace glm;
@@ -1413,14 +1441,13 @@ void Scene::BuildFractalTree() {
     };
 
     // -----------------------------------------------------------------
-    // Plant positions — vase scale Y=1.2 → lip at world Y=1.2 for all three.
-    // Original vase (door center) + two flanking the door frame on each side.
+    // Plant positions — vase scale Y=1.2 → lip at world Y=1.2 for both.
+    // Two flanking the door frame on each side.
     // Door opening: Z ∈ [2.5, 4.5] on right wall.
     // -----------------------------------------------------------------
-    const vec3 plantBases[] = {
-        vec3(6.2f, 1.2f, 3.5f),   // original — door center
-        vec3(6.8f, 1.2f, 1.8f),   // low-Z door flank (below Z=2.5 frame)
-        vec3(6.8f, 1.2f, 5.2f),   // high-Z door flank (above Z=4.5 frame)
+    const glm::vec3 plantBases[] = {
+        glm::vec3(11.5f, 1.2f, 1.8f),  // low-Z door flank (below Z=2.5 frame)
+        glm::vec3(11.5f, 1.2f, 5.2f),  // high-Z door flank (above Z=4.5 frame)
     };
 
     // -----------------------------------------------------------------
@@ -1470,5 +1497,143 @@ void Scene::BuildFractalTree() {
         }
     }
 
-    LOG_INFO("BuildFractalTree: " + std::to_string(counter) + " tree objects across 3 plants.");
+    LOG_INFO("BuildFractalTree: " + std::to_string(counter) + " tree objects across 2 plants.");
+}
+
+// =============================================================================
+// BuildLibrarianDesk — Posh reception/librarian desk at (cx=7.5, cz=6.0)
+// =============================================================================
+// Replaces the removed front-right table+chair set and bookshelf.
+// Components:
+//   1. Wide mahogany desk top (4.5 × 0.12 × 1.8), top surface at Y=0.96
+//   2. Patron-facing modesty panel with 3 drawer units + handles
+//   3. Left/right end panels
+//   4. Raised privacy partition on librarian's side
+//   5. 4 thick legs
+//   6. Executive chair behind the desk (dark green leather, high backrest)
+//   7. Papers, open book, and stacked reference books on desk surface
+//   8. Study lamp (arm + base — cone shade is a CurvedObject in BuildCurvedObjects)
+//      Spotlight source sits inside the cone at Y=1.63.
+// =============================================================================
+void Scene::BuildLibrarianDesk() {
+    // Colors
+    const glm::vec3 maho    = WOOD_MAHOGANY;
+    const glm::vec3 trim    = DESK_TRIM;
+    const glm::vec3 brass   = BRASS;
+    const glm::vec3 green   = CUSHION_GREEN;
+    const glm::vec3 paper   = PAPER_WHITE;
+    const glm::vec3 metal   = LAMP_METAL;
+
+    const float cx = 7.5f, cz = 6.0f;   // desk center
+    const float deskTopY = 0.96f;        // top surface of the desk
+
+    // ---- 1. Desk top ----
+    Add("desk_top",  {cx, 0.90f, cz}, {4.5f, 0.12f, 1.8f}, maho);
+
+    // ---- 2. Patron-facing front panel (modesty panel) ----
+    // Placed at Z = cz - 0.90 = 5.10, spans full desk width.
+    Add("desk_front_panel", {cx, 0.47f, 5.10f}, {4.5f, 0.94f, 0.08f}, maho);
+
+    // Drawer faces (3 units on the front panel, slightly proud of it)
+    const float drawY = 0.42f;
+    const float drawZ = 5.065f;
+    Add("desk_drawer_L",  {6.0f, drawY, drawZ}, {1.10f, 0.26f, 0.04f}, trim);
+    Add("desk_drawer_C",  {7.5f, drawY, drawZ}, {1.10f, 0.26f, 0.04f}, trim);
+    Add("desk_drawer_R",  {9.0f, drawY, drawZ}, {1.10f, 0.26f, 0.04f}, trim);
+
+    // Drawer handles (brass)
+    Add("desk_handle_L",  {6.0f, drawY, 5.043f}, {0.22f, 0.03f, 0.025f}, brass);
+    Add("desk_handle_C",  {7.5f, drawY, 5.043f}, {0.22f, 0.03f, 0.025f}, brass);
+    Add("desk_handle_R",  {9.0f, drawY, 5.043f}, {0.22f, 0.03f, 0.025f}, brass);
+
+    // Nameplate (brass strip near top of front panel)
+    Add("desk_nameplate", {cx, 0.80f, 5.055f}, {0.85f, 0.09f, 0.025f}, brass);
+
+    // ---- 3. Left and right end panels ----
+    Add("desk_end_L", {5.27f, 0.47f, cz}, {0.06f, 0.94f, 1.8f}, maho);
+    Add("desk_end_R", {9.73f, 0.47f, cz}, {0.06f, 0.94f, 1.8f}, maho);
+
+    // ---- 4. Raised privacy partition on librarian's side ----
+    // Sits on top of the desk at Z = 6.90 (back edge of desk surface).
+    Add("desk_partition", {cx, 1.185f, 6.90f}, {4.30f, 0.45f, 0.07f}, maho);
+    // Partition cap trim
+    Add("desk_partition_cap", {cx, 1.415f, 6.90f}, {4.30f, 0.04f, 0.09f}, trim);
+
+    // ---- 5. Four thick legs ----
+    const float legH = 0.84f, legW = 0.10f;
+    const float legY = legH * 0.5f;
+    Add("desk_leg_FL", {5.35f, legY, 5.25f}, {legW, legH, legW}, WOOD_DARK);
+    Add("desk_leg_FR", {9.65f, legY, 5.25f}, {legW, legH, legW}, WOOD_DARK);
+    Add("desk_leg_BL", {5.35f, legY, 6.75f}, {legW, legH, legW}, WOOD_DARK);
+    Add("desk_leg_BR", {9.65f, legY, 6.75f}, {legW, legH, legW}, WOOD_DARK);
+
+    // ---- 6. Executive chair ----
+    // Chair sits at Z=7.55 (0.65 behind desk back edge 6.90), facing -Z (toward desk).
+    {
+        const float chX = cx, chZ = 7.60f;
+
+        // Seat
+        Add("exec_seat_frame",   {chX, 0.48f, chZ}, {0.68f, 0.06f, 0.68f}, trim);
+        Add("exec_seat_cushion", {chX, 0.52f, chZ}, {0.60f, 0.08f, 0.60f}, green);
+
+        // High backrest — extends well above head height for exec look
+        // Backrest back face at Z = chZ + 0.25 = 7.85, center Z = 7.82
+        Add("exec_back_frame",   {chX, 1.22f, 7.82f}, {0.68f, 1.28f, 0.07f}, trim);
+        Add("exec_back_cushion", {chX, 1.22f, 7.80f}, {0.60f, 1.15f, 0.06f}, green);
+        // Headrest bump at top
+        Add("exec_headrest",     {chX, 1.90f, 7.83f}, {0.52f, 0.22f, 0.09f}, green);
+
+        // Armrests
+        Add("exec_arm_L", {chX - 0.38f, 0.68f, chZ}, {0.05f, 0.05f, 0.60f}, trim);
+        Add("exec_arm_R", {chX + 0.38f, 0.68f, chZ}, {0.05f, 0.05f, 0.60f}, trim);
+        // Arm support posts
+        Add("exec_armpost_L", {chX - 0.38f, 0.56f, chZ - 0.20f}, {0.05f, 0.24f, 0.05f}, WOOD_DARK);
+        Add("exec_armpost_R", {chX + 0.38f, 0.56f, chZ - 0.20f}, {0.05f, 0.24f, 0.05f}, WOOD_DARK);
+
+        // 4 legs
+        Add("exec_leg_FL", {chX - 0.28f, 0.24f, chZ - 0.28f}, {0.06f, 0.48f, 0.06f}, WOOD_DARK);
+        Add("exec_leg_FR", {chX + 0.28f, 0.24f, chZ - 0.28f}, {0.06f, 0.48f, 0.06f}, WOOD_DARK);
+        Add("exec_leg_BL", {chX - 0.28f, 0.24f, chZ + 0.28f}, {0.06f, 0.48f, 0.06f}, WOOD_DARK);
+        Add("exec_leg_BR", {chX + 0.28f, 0.24f, chZ + 0.28f}, {0.06f, 0.48f, 0.06f}, WOOD_DARK);
+    }
+
+    // ---- 7. Desk surface items ----
+    // Papers (thin flat slabs lying on the desk)
+    Add("desk_paper_A",   {6.70f, deskTopY + 0.005f, 5.85f},
+        {0.0f, 12.0f, 0.0f},   // slight rotation around Y
+        {0.90f, 0.008f, 0.70f}, paper);
+    Add("desk_paper_B",   {6.50f, deskTopY + 0.010f, 5.95f},
+        {0.0f, -8.0f, 0.0f},
+        {0.75f, 0.008f, 0.58f}, glm::vec3(0.88f, 0.90f, 0.82f));  // slightly tinted
+
+    // Open book (two pages + spine)
+    const float bookY = deskTopY + 0.008f;
+    Add("desk_book_pg_L",  {6.05f, bookY, 6.20f}, {0.40f, 0.015f, 0.52f}, paper);
+    Add("desk_book_pg_R",  {6.50f, bookY, 6.20f}, {0.40f, 0.015f, 0.52f}, paper);
+    Add("desk_book_spine", {6.275f, bookY - 0.004f, 6.20f}, {0.05f, 0.015f, 0.52f}, WOOD_DARK);
+
+    // Stacked reference books on librarian side of desk
+    Add("desk_refbook_A",  {8.10f, deskTopY + 0.02f, 6.30f}, {0.32f, 0.04f, 0.46f}, BOOK_RED);
+    Add("desk_refbook_B",  {8.10f, deskTopY + 0.06f, 6.30f}, {0.30f, 0.04f, 0.44f}, BOOK_BLUE);
+    // Standing book with spine visible
+    Add("desk_refbook_C",  {8.42f, deskTopY + 0.12f, 6.10f},
+        {0.0f, 8.0f, 0.0f},
+        {0.04f, 0.26f, 0.32f}, BOOK_GREEN);
+
+    // ---- 8. Study Lamp (arm + base — cone shade is a CurvedObject) ----
+    // Base disc at desk top right corner: (8.90, desk top, 5.50)
+    const float lx = 8.90f, lz = 5.50f;
+    Add("desk_lamp_base",       {lx,        deskTopY + 0.025f, lz},  {0.24f, 0.05f,  0.24f}, metal);
+    Add("desk_lamp_joint_lo",   {lx,        deskTopY + 0.065f, lz},  {0.07f, 0.07f,  0.07f}, metal);
+    Add("desk_lamp_arm_lo",     {lx,        1.225f,            lz},  {0.04f, 0.37f,  0.04f}, metal);
+    Add("desk_lamp_elbow",      {lx,        1.435f,            lz},  {0.08f, 0.08f,  0.08f}, metal);
+    // Upper arm tilted +20° toward desk center (Rz=+20)
+    Add("desk_lamp_arm_hi",     {8.85f,     1.575f,            lz},
+        {0.0f, 0.0f, 20.0f},
+        {0.04f, 0.30f, 0.04f}, metal);
+    // Bulb hint (tiny warm cube inside shade)
+    Add("desk_lamp_bulb",       {8.80f,     1.66f,             lz},  {0.05f, 0.05f,  0.05f},
+        glm::vec3(1.0f, 0.95f, 0.70f));
+
+    LOG_INFO("BuildLibrarianDesk: desk, exec chair, and study lamp built at (7.5, 6.0).");
 }

@@ -44,6 +44,17 @@ uniform float u_PointConstant;
 uniform float u_PointLinear;
 uniform float u_PointQuadratic;
 
+// ---- Spot Light (study lamp) ----
+uniform bool  u_SpotLightOn;
+uniform vec3  u_SpotLightPos;
+uniform vec3  u_SpotLightDir;
+uniform vec3  u_SpotLightColor;
+uniform float u_SpotCutoff;
+uniform float u_SpotOuterCutoff;
+uniform float u_SpotConstant;
+uniform float u_SpotLinear;
+uniform float u_SpotQuadratic;
+
 // =============================================================================
 // CalcDirLight — Diffuse + Specular contribution from the directional light
 // =============================================================================
@@ -82,6 +93,25 @@ vec3 CalcPointLight(int i, vec3 norm, vec3 viewDir, vec3 baseColor) {
     return diffuse + specular;
 }
 
+// =============================================================================
+// CalcSpotLight — Phong contribution from the study lamp spotlight
+// =============================================================================
+vec3 CalcSpotLight(vec3 norm, vec3 viewDir, vec3 baseColor) {
+    if (!u_SpotLightOn) return vec3(0.0);
+    vec3  lightDir    = normalize(u_SpotLightPos - v_FragPos);
+    float dist        = length(u_SpotLightPos - v_FragPos);
+    float attenuation = 1.0 / (u_SpotConstant + u_SpotLinear * dist + u_SpotQuadratic * dist * dist);
+    float theta       = dot(lightDir, normalize(-u_SpotLightDir));
+    float epsilon     = u_SpotCutoff - u_SpotOuterCutoff;
+    float intensity   = clamp((theta - u_SpotOuterCutoff) / epsilon, 0.0, 1.0);
+    float diff        = u_DiffuseOn  ? max(dot(norm, lightDir), 0.0) : 0.0;
+    vec3  diffuse     = diff * u_SpotLightColor * baseColor * attenuation * intensity;
+    vec3  reflectDir  = reflect(-lightDir, norm);
+    float spec        = u_SpecularOn ? pow(max(dot(viewDir, reflectDir), 0.0), u_Shininess) : 0.0;
+    vec3  specular    = spec * u_SpotLightColor * attenuation * u_SpecularStrength * intensity;
+    return diffuse + specular;
+}
+
 void main() {
     vec3 baseColor = u_Color;
 
@@ -111,6 +141,8 @@ void main() {
         result += CalcPointLight(4, norm, viewDir, baseColor);
         result += CalcPointLight(5, norm, viewDir, baseColor);
     }
+
+    result += CalcSpotLight(norm, viewDir, baseColor);
 
     FragColor = vec4(clamp(result, 0.0, 1.0), u_Alpha);
 }
