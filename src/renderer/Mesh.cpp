@@ -78,7 +78,7 @@ Mesh::~Mesh() {
 void Mesh::Draw() const {
     glBindVertexArray(m_VAO);
     glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    // No unbind — unnecessary state change; next draw will rebind its own VAO
 }
 
 // =============================================================================

@@ -134,7 +134,16 @@ void Scene::Render(Shader& shader) {
 }
 
 // =============================================================================
-// Multi-shader Render (Phase 6)
+// Multi-shader Render (Phase 6) — Batched for performance
+// =============================================================================
+// Optimization strategy:
+//   Pass 1 — All flat-color objects drawn with a single flatShader bind.
+//             Most objects (chairs, shelves, books, fans, door …) are flat,
+//             so this eliminates the majority of shader switches.
+//   Pass 2 — Textured objects only. currentShader tracking skips redundant
+//             glUseProgram + view/projection uploads when consecutive objects
+//             share the same shader.
+//   This reduces per-frame shader switches from O(N) to O(distinct modes).
 // =============================================================================
 void Scene::Render(Shader& flatShader,
                    Shader& simpleShader,
@@ -142,78 +151,93 @@ void Scene::Render(Shader& flatShader,
                    Shader& fragmentBlendShader,
                    GlobalTextureOverride override)
 {
+    // ---- Helper lambda: resolve effective TextureMode for an object ----
+    auto effectiveModeOf = [&](TextureMode mode, unsigned int texID) -> TextureMode {
+        if (override != GlobalTextureOverride::NONE && texID != 0)
+            return static_cast<TextureMode>(static_cast<int>(override));
+        return mode;
+    };
+
+    // ---- Helper lambda: select shader from mode ----
+    auto shaderFor = [&](TextureMode mode) -> Shader* {
+        switch (mode) {
+            case TextureMode::SIMPLE_TEXTURE:  return &simpleShader;
+            case TextureMode::VERTEX_BLEND:    return &vertexBlendShader;
+            case TextureMode::FRAGMENT_BLEND:  return &fragmentBlendShader;
+            default:                           return &flatShader;
+        }
+    };
+
+    // =====================================================================
+    // Pass 1: Flat-color cube objects — one shader bind for the entire pass
+    // =====================================================================
+    flatShader.Use();
+    flatShader.SetMat4("u_View",       m_View);
+    flatShader.SetMat4("u_Projection", m_Projection);
     for (const auto& obj : m_Objects) {
-        // Determine effective mode
-        TextureMode effectiveMode = obj.Mode;
-        // Override only applies to textured objects (floor, walls, table tops)
-        // Non-textured objects (chairs, shelves, books, etc.) always stay flat
-        if (override != GlobalTextureOverride::NONE && obj.TextureID != 0)
-            effectiveMode = static_cast<TextureMode>(static_cast<int>(override));
+        if (effectiveModeOf(obj.Mode, obj.TextureID) != TextureMode::FLAT_COLOR)
+            continue;
+        flatShader.SetMat4("u_Model",  obj.Transform);
+        flatShader.SetVec3("u_Color",  obj.Color);
+        flatShader.SetFloat("u_Alpha", 1.0f);
+        m_CubeMesh->Draw();
+    }
 
-        // Select the correct shader
-        Shader* shader = nullptr;
-        switch (effectiveMode) {
-            case TextureMode::SIMPLE_TEXTURE:  shader = &simpleShader;        break;
-            case TextureMode::VERTEX_BLEND:    shader = &vertexBlendShader;   break;
-            case TextureMode::FRAGMENT_BLEND:  shader = &fragmentBlendShader; break;
-            default:                           shader = &flatShader;          break;
+    // =====================================================================
+    // Pass 2: Textured cube objects — track shader to minimize switches
+    // =====================================================================
+    Shader* currentShader = nullptr;
+    for (const auto& obj : m_Objects) {
+        TextureMode effectiveMode = effectiveModeOf(obj.Mode, obj.TextureID);
+        if (effectiveMode == TextureMode::FLAT_COLOR)
+            continue;
+
+        Shader* shader = shaderFor(effectiveMode);
+        if (shader != currentShader) {
+            shader->Use();
+            shader->SetMat4("u_View",       m_View);
+            shader->SetMat4("u_Projection", m_Projection);
+            currentShader = shader;
         }
 
-        shader->Use();
-
-        // Common uniforms
-        shader->SetMat4("u_Model",      obj.Transform);
-        shader->SetMat4("u_View",       m_View);
-        shader->SetMat4("u_Projection", m_Projection);
-
-        // Texture-specific uniforms
-        if (effectiveMode != TextureMode::FLAT_COLOR) {
-            shader->SetFloat("u_TileX", obj.UVTileX);
-            shader->SetFloat("u_TileY", obj.UVTileY);
-            shader->SetInt("u_Texture", 0);
-
-            if (obj.TextureID != 0) {
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, obj.TextureID);
-            }
+        shader->SetMat4("u_Model",    obj.Transform);
+        shader->SetFloat("u_TileX",   obj.UVTileX);
+        shader->SetFloat("u_TileY",   obj.UVTileY);
+        shader->SetInt("u_Texture",   0);
+        if (obj.TextureID != 0) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, obj.TextureID);
         }
-
-        // Color blend uniforms (vertex and fragment blend modes)
         if (effectiveMode == TextureMode::VERTEX_BLEND ||
             effectiveMode == TextureMode::FRAGMENT_BLEND) {
             shader->SetVec3("u_SurfaceColor", obj.Color);
             shader->SetFloat("u_BlendFactor",  obj.BlendFactor);
         }
 
-        // Flat color fallback
-        if (effectiveMode == TextureMode::FLAT_COLOR) {
-            shader->SetVec3("u_Color",  obj.Color);
-            shader->SetFloat("u_Alpha", 1.0f);
-        }
-
         m_CubeMesh->Draw();
     }
 
-    // ---- Phase 8: Render curved objects (each has its own mesh) ----
+    // =====================================================================
+    // Curved objects (each owns its own mesh) — track shader as above
+    // =====================================================================
+    currentShader = nullptr;
     for (const auto& obj : m_CurvedObjects) {
-        TextureMode effectiveMode = obj.Mode;
-        if (override != GlobalTextureOverride::NONE && obj.TextureID != 0)
-            effectiveMode = static_cast<TextureMode>(static_cast<int>(override));
+        TextureMode effectiveMode = effectiveModeOf(obj.Mode, obj.TextureID);
+        Shader* shader = shaderFor(effectiveMode);
 
-        Shader* shader = nullptr;
-        switch (effectiveMode) {
-            case TextureMode::SIMPLE_TEXTURE:  shader = &simpleShader;        break;
-            case TextureMode::VERTEX_BLEND:    shader = &vertexBlendShader;   break;
-            case TextureMode::FRAGMENT_BLEND:  shader = &fragmentBlendShader; break;
-            default:                           shader = &flatShader;           break;
+        if (shader != currentShader) {
+            shader->Use();
+            shader->SetMat4("u_View",       m_View);
+            shader->SetMat4("u_Projection", m_Projection);
+            currentShader = shader;
         }
 
-        shader->Use();
-        shader->SetMat4("u_Model",      obj.Transform);
-        shader->SetMat4("u_View",       m_View);
-        shader->SetMat4("u_Projection", m_Projection);
+        shader->SetMat4("u_Model", obj.Transform);
 
-        if (effectiveMode != TextureMode::FLAT_COLOR) {
+        if (effectiveMode == TextureMode::FLAT_COLOR) {
+            shader->SetVec3("u_Color",  obj.Color);
+            shader->SetFloat("u_Alpha", 1.0f);
+        } else {
             shader->SetFloat("u_TileX", 1.0f);
             shader->SetFloat("u_TileY", 1.0f);
             shader->SetInt("u_Texture", 0);
@@ -221,15 +245,11 @@ void Scene::Render(Shader& flatShader,
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, obj.TextureID);
             }
-        }
-        if (effectiveMode == TextureMode::VERTEX_BLEND ||
-            effectiveMode == TextureMode::FRAGMENT_BLEND) {
-            shader->SetVec3("u_SurfaceColor", obj.Color);
-            shader->SetFloat("u_BlendFactor",  obj.BlendFactor);
-        }
-        if (effectiveMode == TextureMode::FLAT_COLOR) {
-            shader->SetVec3("u_Color",  obj.Color);
-            shader->SetFloat("u_Alpha", 1.0f);
+            if (effectiveMode == TextureMode::VERTEX_BLEND ||
+                effectiveMode == TextureMode::FRAGMENT_BLEND) {
+                shader->SetVec3("u_SurfaceColor", obj.Color);
+                shader->SetFloat("u_BlendFactor",  obj.BlendFactor);
+            }
         }
 
         obj.Mesh->Draw();
@@ -274,13 +294,19 @@ void Scene::SetLighting(Shader& shader, const LightState& lights, const glm::vec
     shader.SetVec3 ("u_DirLightColor",     lights.DirLightColor);
     shader.SetFloat("u_DirLightIntensity", lights.DirLightIntensity);
 
-    // Point lights
-    shader.SetBool ("u_PointLightsOn", lights.PointLightsOn);
+    // Point lights — pre-computed names avoid per-call heap allocations
+    static const std::string s_PtPos[LightState::NUM_POINT_LIGHTS] = {
+        "u_PointLightPos[0]","u_PointLightPos[1]","u_PointLightPos[2]",
+        "u_PointLightPos[3]","u_PointLightPos[4]","u_PointLightPos[5]"
+    };
+    static const std::string s_PtCol[LightState::NUM_POINT_LIGHTS] = {
+        "u_PointLightColor[0]","u_PointLightColor[1]","u_PointLightColor[2]",
+        "u_PointLightColor[3]","u_PointLightColor[4]","u_PointLightColor[5]"
+    };
+    shader.SetBool("u_PointLightsOn", lights.PointLightsOn);
     for (int i = 0; i < LightState::NUM_POINT_LIGHTS; i++) {
-        shader.SetVec3("u_PointLightPos["   + std::to_string(i) + "]",
-                       lights.PointLights[i].Position);
-        shader.SetVec3("u_PointLightColor[" + std::to_string(i) + "]",
-                       lights.PointLights[i].Color);
+        shader.SetVec3(s_PtPos[i], lights.PointLights[i].Position);
+        shader.SetVec3(s_PtCol[i], lights.PointLights[i].Color);
     }
     // Attenuation coefficients (same for all point lights)
     shader.SetFloat("u_PointConstant",  lights.PointLights[0].Constant);
