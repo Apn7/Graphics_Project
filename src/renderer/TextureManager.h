@@ -68,9 +68,8 @@ public:
         Load("wall",    "textures/wall_plaster.jpg");
         Load("wood",    "textures/wood_dark.jpg");
         Load("ceiling", "textures/ceiling.jpg");
-
-        // TODO Phase 7: Load("book_spine",   "textures/book_spine.jpg");
-        // TODO Phase 7: Load("ceiling_wood", "textures/ceiling_wood.jpg");
+        Load("earth",   "textures/earth.png");
+        Load("door",    "textures/door.jpg");
 
         LOG_INFO("TextureManager: All textures loaded.");
     }

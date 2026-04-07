@@ -92,4 +92,17 @@ namespace Primitives {
     // =========================================================================
     std::unique_ptr<Mesh> CreateBezierVase(int profileSteps = 40, int radialSlices = 48);
 
+    // =========================================================================
+    // CreateHalfTorus — Generates a 180-degree curved tube (Phase 8)
+    // =========================================================================
+    // Generates a semi-circular ring lying in the XY plane.
+    // The ring sweeps from angle 0 to PI around the Z axis.
+    // Used for the globe stand meridian ring.
+    // radius: distance from center to tube center
+    // tubeRadius: radius of the tube itself
+    //
+    // Returns: unique_ptr<Mesh>
+    // =========================================================================
+    std::unique_ptr<Mesh> CreateHalfTorus(float radius = 1.0f, float tubeRadius = 0.1f, int slices = 32, int segments = 32);
+
 } // namespace Primitives

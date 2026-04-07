@@ -87,6 +87,10 @@ private:
     glm::mat4 m_View       = glm::mat4(1.0f);
     glm::mat4 m_Projection = glm::mat4(1.0f);
 
+    // Globe rotation state
+    float m_GlobeAngle = 0.0f;
+    float m_GlobeSpeed = 12.0f;  // degrees per second (slow, realistic)
+
     // Fan animation state
     float m_FanAngle = 0.0f;
     float m_FanSpeed = 120.0f;

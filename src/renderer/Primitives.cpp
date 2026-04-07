@@ -389,5 +389,71 @@ std::unique_ptr<Mesh> CreateBezierVase(int profileSteps, int radialSlices) {
     return std::make_unique<Mesh>(vertices, indices);
 }
 
+// =============================================================================
+// CreateHalfTorus — Generates a 180-degree curved tube (Phase 8)
+// =============================================================================
+std::unique_ptr<Mesh> CreateHalfTorus(float radius, float tubeRadius, int slices, int segments) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const float PI = 3.14159265358979323846f;
+    
+    // segments: number of steps along the half-circle (theta: -PI/2 to PI/2)
+    // slices: number of steps around the tube (phi: 0 to 2PI)
+    for (int i = 0; i <= segments; i++) {
+        float theta = -PI / 2.0f + PI * static_cast<float>(i) / static_cast<float>(segments);
+        float cosTheta = std::cos(theta);
+        float sinTheta = std::sin(theta);
+
+        for (int j = 0; j <= slices; j++) {
+            float phi = 2.0f * PI * static_cast<float>(j) / static_cast<float>(slices);
+            float cosPhi = std::cos(phi);
+            float sinPhi = std::sin(phi);
+
+            // Compute position
+            float r_center = radius + tubeRadius * cosPhi;
+            glm::vec3 pos = {
+                r_center * cosTheta,
+                r_center * sinTheta,
+                tubeRadius * sinPhi
+            };
+
+            // Compute normal
+            glm::vec3 center = { radius * cosTheta, radius * sinTheta, 0.0f };
+            glm::vec3 normal = glm::normalize(pos - center);
+
+            // Simple UV mapping
+            glm::vec2 uv = {
+                static_cast<float>(i) / static_cast<float>(segments),
+                static_cast<float>(j) / static_cast<float>(slices)
+            };
+
+            vertices.push_back({ pos, normal, uv });
+        }
+    }
+
+    // Build indices — similar to a grid since it's a parametric surface
+    for (int i = 0; i < segments; i++) {
+        for (int j = 0; j < slices; j++) {
+            int current = i * (slices + 1) + j;
+            int next    = current + (slices + 1);
+
+            indices.push_back(current);
+            indices.push_back(next);
+            indices.push_back(current + 1);
+
+            indices.push_back(current + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
+        }
+    }
+
+    // Generate face normals to achieve a flat-shaded look like the other curved objects,
+    // or keep smooth normals... Since we use smooth normals for the sphere, let's keep smooth.
+    // However, if we need it to look perfectly smooth, the normals are already accurate.
+
+    return std::make_unique<Mesh>(vertices, indices);
+}
+
 } // namespace Primitives
 
