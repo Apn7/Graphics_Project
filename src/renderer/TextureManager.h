@@ -70,6 +70,7 @@ public:
         Load("ceiling", "textures/ceiling.jpg");
         Load("earth",   "textures/earth.png");
         Load("door",    "textures/door.jpg");
+        Load("shelf",   "textures/shelf.jpg");
 
         LOG_INFO("TextureManager: All textures loaded.");
     }

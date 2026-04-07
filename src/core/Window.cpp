@@ -50,6 +50,7 @@ Window::Window(int width, int height, const std::string& title)
     // ---- Step 4: Make this window's OpenGL context current ----
     // All subsequent OpenGL calls will target this window's context.
     glfwMakeContextCurrent(m_Window);
+    glfwSwapInterval(1);  // Enable vsync — locks to monitor refresh rate (60 fps)
 
     // ---- Step 5: Load GLAD (OpenGL function pointers) ----
     // GLAD must be loaded AFTER the context is made current.

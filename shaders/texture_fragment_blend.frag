@@ -50,6 +50,15 @@ uniform float u_SpotConstant;
 uniform float u_SpotLinear;
 uniform float u_SpotQuadratic;
 
+float DeskLampSurfaceMask() {
+    const vec2 deskCenter = vec2(6.45, 5.95);
+    const vec2 deskRadius = vec2(1.55, 0.82);
+    vec2 local = (v_FragPos.xz - deskCenter) / deskRadius;
+    float radial = 1.0 - dot(local, local);
+    float topMask = smoothstep(0.88, 0.97, v_FragPos.y);
+    return max(radial, 0.0) * topMask;
+}
+
 vec3 CalcDirLight(vec3 norm, vec3 viewDir, vec3 baseColor) {
     if (!u_DirLightOn) return vec3(0.0);
     vec3 lightDir = normalize(-u_DirLightDir);
@@ -80,7 +89,7 @@ vec3 CalcSpotLight(vec3 norm, vec3 viewDir, vec3 baseColor) {
     float attenuation = 1.0 / (u_SpotConstant + u_SpotLinear * dist + u_SpotQuadratic * dist * dist);
     float theta       = dot(lightDir, normalize(-u_SpotLightDir));
     float epsilon     = u_SpotCutoff - u_SpotOuterCutoff;
-    float intensity   = clamp((theta - u_SpotOuterCutoff) / epsilon, 0.0, 1.0);
+    float intensity   = clamp((theta - u_SpotOuterCutoff) / epsilon, 0.0, 1.0) * DeskLampSurfaceMask();
     float diff        = u_DiffuseOn  ? max(dot(norm, lightDir), 0.0) : 0.0;
     vec3  diffuse     = diff * u_SpotLightColor * baseColor * attenuation * intensity;
     vec3  reflectDir  = reflect(-lightDir, norm);

@@ -23,6 +23,7 @@
 #include <glad/glad.h>  // Phase 6: glActiveTexture, glBindTexture
 
 #include <cmath>      // cos, sin for fan blades
+#include <ctime>      // time, localtime for real-time clock hands
 #include <glm/gtc/matrix_transform.hpp>  // translate, rotate, scale for fan assembly
 
 using namespace LibraryColors;
@@ -111,6 +112,9 @@ void Scene::Build() {
 
     // Phase 10: Librarian desk (posh desk + exec chair + study lamp)
     BuildLibrarianDesk();
+
+    // Phase 11: Wall clock above librarian desk (real-time hands)
+    BuildClock();
 
     // Phase 6: assign textures and modes
     AssignTextures();
@@ -622,6 +626,38 @@ void Scene::BuildWallShelves() {
     BuildMediumShelfFront( 0.0f, "shelf_front_B");
     // Front-right replaced by librarian desk
     // BuildMediumShelfFront( 7.5f, "shelf_front_C");
+
+    BuildMediumShelf(-3.75f, "shelf_back_D");
+    BuildMediumShelf( 3.75f, "shelf_back_E");
+
+    BuildMediumShelfFront(-3.75f, "shelf_front_D");
+
+    // ---------------------------------------------------------------
+    // Left wall shelves — back panel at x=-ROOM_HALF_W, extends inward (+X)
+    // Avoiding window zone Z ∈ [-2.6, -0.4]
+    // ---------------------------------------------------------------
+    auto BuildMediumShelfLeft = [&](float zCenter, const std::string& prefix) {
+        float cx  = -ROOM_HALF_W + 0.4f;  // Back panel offset from left wall (same as back wall shelves)
+        float cy  = 1.8f;
+        float h   = 3.6f;
+        float dx  = 0.35f;                // Depth offset inward (+X)
+
+        Add(prefix + "_back",  {cx,               cy,                zCenter},              {0.1f, h,    1.8f},        WOOD_DARK);
+        Add(prefix + "_left",  {cx + dx,          cy,                zCenter - 0.85f},      {0.7f, h,    0.08f},       WOOD_DARK);
+        Add(prefix + "_right", {cx + dx,          cy,                zCenter + 0.85f},      {0.7f, h,    0.08f},       WOOD_DARK);
+        Add(prefix + "_top",   {cx + dx,          cy + h * 0.5f - 0.04f, zCenter},          {0.7f, 0.07f, 1.8f},       WOOD_DARK);
+
+        for (int i = 0; i < 4; i++) {
+            float shelfY = 0.55f + i * 0.75f;
+            Add(prefix + "_shelf" + std::to_string(i),
+                {cx + dx, shelfY, zCenter},
+                {0.7f, 0.06f, 1.8f}, WOOD_DARK);
+        }
+    };
+
+    BuildMediumShelfLeft(-5.0f, "shelf_left_A");
+    BuildMediumShelfLeft( 2.0f, "shelf_left_B");
+    BuildMediumShelfLeft( 5.0f, "shelf_left_C");
 }
 
 
@@ -666,9 +702,11 @@ void Scene::BuildBooks() {
         }
     };
 
-    FillMediumShelf(-7.5f, "books_back_A");
-    FillMediumShelf( 0.0f, "books_back_B");
-    FillMediumShelf( 7.5f, "books_back_C");
+    FillMediumShelf(-7.5f,  "books_back_A");
+    FillMediumShelf( 0.0f,  "books_back_B");
+    FillMediumShelf( 7.5f,  "books_back_C");
+    FillMediumShelf(-3.75f, "books_back_D");
+    FillMediumShelf( 3.75f, "books_back_E");
 
     // --- Front wall medium shelves (exact mirror of back wall) ---
     auto FillMediumShelfFront = [&](float xCenter, const std::string& prefix) {
@@ -680,10 +718,38 @@ void Scene::BuildBooks() {
         }
     };
 
-    FillMediumShelfFront(-7.5f, "books_front_A");
-    FillMediumShelfFront( 0.0f, "books_front_B");
+    FillMediumShelfFront(-7.5f,  "books_front_A");
+    FillMediumShelfFront( 0.0f,  "books_front_B");
     // Front-right replaced by librarian desk
     // FillMediumShelfFront( 7.5f, "books_front_C");
+    FillMediumShelfFront(-3.75f, "books_front_D");
+
+    // --- Left wall shelves (3 units x 4 shelves each) ---
+    // Books run along Z-axis (shelf width is in Z), spine faces +X (into the room)
+    const float leftBookX = -ROOM_HALF_W + 0.75f;  // inset from wall (cx + dx = -ROOM_HALF_W + 0.4 + 0.35)
+    const float leftShelfZCenters[] = { -5.0f, 2.0f, 5.0f };
+    const char* leftPrefixes[] = { "books_left_A", "books_left_B", "books_left_C" };
+    for (int s = 0; s < 3; s++) {
+        for (int i = 0; i < 4; i++) {
+            float shelfY = 0.55f + i * 0.75f;
+            float shelfWidth = 1.7f;
+            float bookW = 0.07f;
+            float bookH = 0.55f;
+            float bookD = 0.50f;  // depth into wall
+            int count = static_cast<int>(shelfWidth / (bookW + 0.01f));
+            float startZ = leftShelfZCenters[s] - shelfWidth * 0.5f + bookW * 0.5f;
+            for (int j = 0; j < count; j++) {
+                glm::vec3 bPos = {
+                    leftBookX,
+                    shelfY + bookH * 0.5f + 0.03f,
+                    startZ + j * (bookW + 0.01f)
+                };
+                // Rotate 90 degrees around Y so spine faces into the room
+                Add(std::string(leftPrefixes[s]) + "_s" + std::to_string(i) + "_book" + std::to_string(j),
+                    bPos, {0.0f, 90.0f, 0.0f}, {bookW, bookH, bookD}, bookColors[j % colorCount]);
+            }
+        }
+    }
 }
 
 
@@ -1031,6 +1097,33 @@ void Scene::UpdateAnimations(float fanDeltaTime, float globalDeltaTime) {
         mkOut = glm::scale(mkOut, glm::vec3(0.08f, 0.08f, 0.06f));
         m_Objects[m_WindowIndices[8 + i]].Transform = mkOut;
     }
+
+    // ---- 5. Clock hands — updated from real system time ----
+    if (m_ClockHourIdx < m_Objects.size() && m_ClockMinuteIdx < m_Objects.size()
+        && m_ClockSecondIdx < m_Objects.size())
+    {
+        time_t now = time(nullptr);
+        struct tm t{};
+        localtime_s(&t, &now);
+        // Negative angle = clockwise when viewed from inside (facing +Z toward front wall)
+        float hourAngle   = -(t.tm_hour % 12) * 30.0f - t.tm_min * 0.5f;
+        float minuteAngle = -t.tm_min * 6.0f - t.tm_sec * 0.1f;
+        float secondAngle = -t.tm_sec * 6.0f;
+
+        // Clock is on front wall: rotate around Z axis, pivot at (7.5, 2.8, 9.68)
+        auto buildHand = [](float hcx, float hcy, float hcz,
+                            float ang, float sx, float sy, float sz) -> glm::mat4 {
+            glm::mat4 T   = glm::translate(glm::mat4(1.0f), glm::vec3(hcx, hcy, hcz));
+            glm::mat4 R   = glm::rotate(glm::mat4(1.0f), glm::radians(ang), glm::vec3(0.0f, 0.0f, 1.0f));
+            glm::mat4 off = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, sy * 0.5f, 0.0f));
+            glm::mat4 S   = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, sz));
+            return T * R * off * S;
+        };
+
+        m_Objects[m_ClockHourIdx].Transform   = buildHand(7.5f, 2.8f, 9.68f, hourAngle,   0.04f,  0.20f, 0.04f);
+        m_Objects[m_ClockMinuteIdx].Transform = buildHand(7.5f, 2.8f, 9.68f, minuteAngle, 0.03f,  0.26f, 0.03f);
+        m_Objects[m_ClockSecondIdx].Transform = buildHand(7.5f, 2.8f, 9.68f, secondAngle, 0.018f, 0.30f, 0.025f);
+    }
 }
 
 // =============================================================================
@@ -1040,6 +1133,7 @@ void Scene::AssignTextures() {
     unsigned int floorTex = TextureManager::Get().GetID("floor");
     unsigned int wallTex  = TextureManager::Get().GetID("wall");
     unsigned int woodTex  = TextureManager::Get().GetID("wood");
+    unsigned int shelfTex = TextureManager::Get().GetID("shelf");
 
     for (auto& obj : m_Objects) {
 
@@ -1104,6 +1198,16 @@ void Scene::AssignTextures() {
             obj.UVTileY     = 1.0f;
             obj.Color       = LibraryColors::WOOD_MEDIUM;
             obj.BlendFactor = 0.25f;  // Mostly texture, slight wood tint
+        }
+
+        // BOOKSHELVES — shelf wood texture blended with dark wood color
+        else if (obj.Label.rfind("shelf_", 0) == 0) {
+            obj.TextureID   = shelfTex;
+            obj.Mode        = TextureMode::FRAGMENT_BLEND;
+            obj.UVTileX     = 1.5f;
+            obj.UVTileY     = 2.0f;
+            obj.Color       = LibraryColors::WOOD_DARK;
+            obj.BlendFactor = 0.35f;
         }
 
         // Everything else remains FLAT_COLOR (Phase 5 behavior unchanged)
@@ -1240,6 +1344,15 @@ void Scene::BuildCurvedObjects() {
                                * scale(mat4(1.0f), vec3(0.25f, 0.22f, 0.25f));
                 cone.Mesh    = Primitives::CreateCone(32);
                 m_CurvedObjects.push_back(std::move(cone));
+
+                CurvedObject bulb;
+                bulb.Label   = "lamp_" + std::to_string(lampIdx - 1) + "_bulb";
+                bulb.Color   = vec3(1.50f, 1.35f, 0.95f);  // Bright warm glow
+                bulb.Mode    = TextureMode::FLAT_COLOR;
+                bulb.Transform = translate(mat4(1.0f), vec3(cx, 4.86f, cz))
+                               * scale(mat4(1.0f), vec3(0.075f, 0.075f, 0.075f));
+                bulb.Mesh    = Primitives::CreateSphere(16, 16);
+                m_CurvedObjects.push_back(std::move(bulb));
             }
         }
     }
@@ -1288,7 +1401,7 @@ void Scene::BuildCurvedObjects() {
 
         CurvedObject bulb;
         bulb.Label   = "desk_lamp_bulb";
-        bulb.Color   = vec3(1.45f, 1.32f, 0.92f);  // Warm bright bulb
+        bulb.Color   = vec3(1.62f, 1.46f, 1.00f);  // Slightly brighter bulb so the source reads hotter
         bulb.Mode    = TextureMode::FLAT_COLOR;
         bulb.Transform = translate(mat4(1.0f), vec3(8.27f, 1.73f, 6.50f))
                        * scale(mat4(1.0f), vec3(0.075f, 0.075f, 0.075f));
@@ -1683,4 +1796,93 @@ void Scene::BuildLibrarianDesk() {
     }
 
     LOG_INFO("BuildLibrarianDesk: desk, exec chair, and study lamp built at (7.5, 6.0).");
+}
+
+// =============================================================================
+// BuildClock — Wall clock mounted on the front wall above the librarian desk
+// =============================================================================
+// The clock face is at (7.5, 2.8, 6.96), flush against the front wall (Z=+7).
+// Hour and minute hands rotate around the Z-axis in real-time.
+// Indices for the two hands are stored so UpdateAnimations() can update them.
+// =============================================================================
+void Scene::BuildClock()
+{
+    // Clock on the FRONT wall (Z=+10), above and behind the librarian desk.
+    // Face is in the XY plane (thin in Z), facing the room (-Z direction).
+    // Viewer looks in +Z direction at the wall → clockwise = negative Z rotation.
+    constexpr float cx   = 7.5f;
+    constexpr float cy   = 2.8f;
+    constexpr float cz   = 9.75f;  // well in front of inner wall face (wall inner face ~9.9)
+    constexpr float pinZ = 9.68f;  // hands/pin closer to room (lower Z = toward room)
+
+    const glm::vec3 handColor  (0.02f, 0.02f, 0.02f);  // pure black
+    const glm::vec3 secondColor(1.0f,  0.85f, 0.0f);   // yellow
+    const glm::vec3 brassColor (0.60f, 0.50f, 0.20f);
+    const glm::vec3 rimColor   (0.22f, 0.18f, 0.14f);
+    const glm::vec3 faceColor  (1.0f,  1.0f,  1.0f);   // white
+
+    // ---- Dark wood rim ----
+    Add("clock_rim",  {cx, cy, 9.82f}, {0.65f, 0.65f, 0.04f}, rimColor);
+
+    // ---- White face (faces -Z toward the room) ----
+    Add("clock_face", {cx, cy, cz},    {0.58f, 0.58f, 0.04f}, faceColor);
+
+    // ---- 12 hour markers in the XY plane ----
+    // Viewer faces +Z toward the wall, so clockwise: 3 o'clock = +X (right)
+    for (int h = 0; h < 12; h++) {
+        float a  = glm::radians(static_cast<float>(h * 30));
+        float mx = cx + 0.22f * std::sin(a);   // +X = viewer's right at 3 o'clock
+        float my = cy + 0.22f * std::cos(a);   // +Y = up at 12 o'clock
+        glm::vec3 dotColor = (h == 0 || h == 3 || h == 6 || h == 9)
+                           ? glm::vec3(0.72f, 0.56f, 0.24f)
+                           : glm::vec3(0.25f, 0.20f, 0.18f);
+        Add("clock_mark_" + std::to_string(h), {mx, my, pinZ}, {0.045f, 0.045f, 0.025f}, dotColor);
+    }
+
+    // ---- Hour hand ----
+    m_ClockHourIdx = m_Objects.size();
+    {
+        constexpr float sx = 0.04f, sy = 0.20f, sz = 0.04f;
+        glm::mat4 T   = glm::translate(glm::mat4(1.0f), glm::vec3(cx, cy, pinZ));
+        glm::mat4 R   = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 off = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, sy * 0.5f, 0.0f));
+        glm::mat4 S   = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, sz));
+        SceneObject hand;
+        hand.Transform = hand.OriginalTransform = T * R * off * S;
+        hand.Color = handColor;  hand.Label = "clock_hour_hand";
+        m_Objects.push_back(hand);
+    }
+
+    // ---- Minute hand ----
+    m_ClockMinuteIdx = m_Objects.size();
+    {
+        constexpr float sx = 0.03f, sy = 0.26f, sz = 0.03f;
+        glm::mat4 T   = glm::translate(glm::mat4(1.0f), glm::vec3(cx, cy, pinZ));
+        glm::mat4 R   = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 off = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, sy * 0.5f, 0.0f));
+        glm::mat4 S   = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, sz));
+        SceneObject hand;
+        hand.Transform = hand.OriginalTransform = T * R * off * S;
+        hand.Color = handColor;  hand.Label = "clock_minute_hand";
+        m_Objects.push_back(hand);
+    }
+
+    // ---- Seconds hand ----
+    m_ClockSecondIdx = m_Objects.size();
+    {
+        constexpr float sx = 0.018f, sy = 0.30f, sz = 0.025f;
+        glm::mat4 T   = glm::translate(glm::mat4(1.0f), glm::vec3(cx, cy, pinZ));
+        glm::mat4 R   = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 off = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, sy * 0.5f, 0.0f));
+        glm::mat4 S   = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, sz));
+        SceneObject hand;
+        hand.Transform = hand.OriginalTransform = T * R * off * S;
+        hand.Color = secondColor;  hand.Label = "clock_second_hand";
+        m_Objects.push_back(hand);
+    }
+
+    // ---- Brass center pin ----
+    Add("clock_pin", {cx, cy, pinZ - 0.01f}, {0.045f, 0.045f, 0.045f}, brassColor);
+
+    LOG_INFO("BuildClock: wall clock built on front wall at (7.5, 2.8, 9.75).");
 }

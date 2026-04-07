@@ -108,6 +108,11 @@ private:
     std::vector<size_t> m_WindowIndices; // [0..3]=panels, [4..7]=inner knobs, [8..11]=outer knobs
                                          // panels: LW-left, LW-right, RW-left, RW-right
 
+    // Clock animation state (real-time system clock)
+    size_t m_ClockHourIdx   = 0;   // index into m_Objects for the hour hand
+    size_t m_ClockMinuteIdx = 0;   // index into m_Objects for the minute hand
+    size_t m_ClockSecondIdx = 0;   // index into m_Objects for the second hand
+
     // Helper: adds a SceneObject (no rotation)
     void Add(const std::string& label,
              const glm::vec3& position,
@@ -134,6 +139,7 @@ private:
     void BuildCurvedObjects();   // Phase 8: sphere (globe), cone (lampshade), vase (by door)
     void BuildFractalTree();     // Phase 9: recursive fractal plant growing from the vase
     void BuildLibrarianDesk();   // Phase 10: posh desk + exec chair + study lamp (spotlight)
+    void BuildClock();           // Phase 11: wall clock above librarian desk (real-time hands)
 
     // Phase 6: Assign textures and modes after Build
     void AssignTextures();
