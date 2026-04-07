@@ -94,8 +94,8 @@ private:
     // Fan animation state
     float m_FanAngle = 0.0f;
     float m_FanSpeed = 120.0f;
-    glm::vec3 m_FanCenter = glm::vec3(0.0f);
-    std::vector<size_t> m_FanBladeIndices;
+    std::vector<glm::vec3> m_FanCenters;      // One per fan (9 total in 3x3 FLFLF grid)
+    std::vector<size_t>    m_FanBladeIndices; // 4 blades per fan; fan k uses [k*4 .. k*4+3]
 
     // Door animation state
     bool m_DoorOpen = false;

@@ -49,14 +49,18 @@ struct LightState {
     float     DayDirIntensity   = 0.55f;
     float     DayAmbientStr     = 0.18f;
 
-    // ---- Point lights (3 pendant lamps above tables) ----
+    // ---- Point lights (6 pendant lamps at FLFLF L-column positions) ----
     bool PointLightsOn = true;  // O key
 
-    static constexpr int NUM_POINT_LIGHTS = 3;
+    // L positions: X = {-4, +4}, Z = {-6, 0, +6}  → 6 lights total
+    static constexpr int NUM_POINT_LIGHTS = 6;
     PointLight PointLights[NUM_POINT_LIGHTS] = {
-        { glm::vec3(-4.5f, 4.8f, 0.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Warm amber
-        { glm::vec3( 0.0f, 4.8f, 0.0f), glm::vec3(0.0f, 0.0f,  0.0f)  },  // Disabled (light removed from fan)
-        { glm::vec3( 4.5f, 4.8f, 0.0f), glm::vec3(1.0f, 0.88f, 0.65f) }
+        { glm::vec3(-4.0f, 4.8f, -6.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 0 Left
+        { glm::vec3(+4.0f, 4.8f, -6.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 0 Right
+        { glm::vec3(-4.0f, 4.8f,  0.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 1 Left
+        { glm::vec3(+4.0f, 4.8f,  0.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 1 Right
+        { glm::vec3(-4.0f, 4.8f, +6.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 2 Left
+        { glm::vec3(+4.0f, 4.8f, +6.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Row 2 Right
     };
 
     // ---- Material defaults (applied to all objects uniformly) ----

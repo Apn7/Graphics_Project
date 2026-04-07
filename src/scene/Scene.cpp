@@ -30,8 +30,8 @@ using namespace LibraryColors;
 // =============================================================================
 // Room dimension constants — single source of truth
 // =============================================================================
-static constexpr float ROOM_HALF_W  = 8.0f;   // X: -8 to +8
-static constexpr float ROOM_HALF_D  = 7.0f;   // Z: -7 to +7
+static constexpr float ROOM_HALF_W  = 12.0f;  // X: -12 to +12 (width=24)
+static constexpr float ROOM_HALF_D  = 10.0f;  // Z: -10 to +10 (depth=20)
 static constexpr float ROOM_HEIGHT  = 6.0f;   // Y: 0 to 6
 static constexpr float WALL_THICK   = 0.2f;
 
@@ -566,9 +566,9 @@ void Scene::BuildWallShelves() {
         }
     };
 
-    BuildMediumShelf(-4.5f, "shelf_back_A");
+    BuildMediumShelf(-7.5f, "shelf_back_A");
     BuildMediumShelf( 0.0f, "shelf_back_B");
-    BuildMediumShelf( 4.5f, "shelf_back_C");
+    BuildMediumShelf( 7.5f, "shelf_back_C");
 
     // ---------------------------------------------------------------
     // Front wall mirror — same math, depth offset goes inward (z - dz)
@@ -592,9 +592,9 @@ void Scene::BuildWallShelves() {
         }
     };
 
-    BuildMediumShelfFront(-4.5f, "shelf_front_A");
+    BuildMediumShelfFront(-7.5f, "shelf_front_A");
     BuildMediumShelfFront( 0.0f, "shelf_front_B");
-    BuildMediumShelfFront( 4.5f, "shelf_front_C");
+    BuildMediumShelfFront( 7.5f, "shelf_front_C");
 }
 
 
@@ -639,9 +639,9 @@ void Scene::BuildBooks() {
         }
     };
 
-    FillMediumShelf(-4.5f, "books_back_A");
+    FillMediumShelf(-7.5f, "books_back_A");
     FillMediumShelf( 0.0f, "books_back_B");
-    FillMediumShelf( 4.5f, "books_back_C");
+    FillMediumShelf( 7.5f, "books_back_C");
 
     // --- Front wall medium shelves (exact mirror of back wall) ---
     auto FillMediumShelfFront = [&](float xCenter, const std::string& prefix) {
@@ -653,14 +653,14 @@ void Scene::BuildBooks() {
         }
     };
 
-    FillMediumShelfFront(-4.5f, "books_front_A");
+    FillMediumShelfFront(-7.5f, "books_front_A");
     FillMediumShelfFront( 0.0f, "books_front_B");
-    FillMediumShelfFront( 4.5f, "books_front_C");
+    FillMediumShelfFront( 7.5f, "books_front_C");
 }
 
 
 // =============================================================================
-// BuildTables — One table per shelf column (X = -4.5, 0, +4.5)
+// BuildTables — One table per shelf column (X = -7.5, 0, +7.5)
 // =============================================================================
 void Scene::BuildTables() {
     auto BuildTableSet = [&](const std::string& id, float cx) {
@@ -673,9 +673,9 @@ void Scene::BuildTables() {
         Add("table_" + id + "_leg3", {cx + 1.0f, 0.39f, +0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
     };
 
-    BuildTableSet("L",  -4.5f);   // Left   — aligned with shelf_back_A / shelf_front_A
+    BuildTableSet("L",  -7.5f);   // Left   — aligned with shelf_back_A / shelf_front_A
     BuildTableSet("C",   0.0f);   // Center — aligned with shelf_back_B / shelf_front_B
-    BuildTableSet("R",  +4.5f);   // Right  — aligned with shelf_back_C / shelf_front_C
+    BuildTableSet("R",  +7.5f);   // Right  — aligned with shelf_back_C / shelf_front_C
 }
 
 // =============================================================================
@@ -720,67 +720,95 @@ void Scene::BuildChairs() {
         BuildChair("chair_" + id + "_zn_r", {cx + 0.60f, 0.0f, -1.10f}, -1.0f);
     };
 
-    BuildChairSet("L", -4.5f);   // Left column
+    BuildChairSet("L", -7.5f);   // Left column
     BuildChairSet("C",  0.0f);   // Center column
-    BuildChairSet("R", +4.5f);   // Right column
+    BuildChairSet("R", +7.5f);   // Right column
 }
 
 // =============================================================================
-// BuildCeiling — Single center ceiling fan with rigidly attached blades
+// BuildCeiling — 9 ceiling fans + 6 pendant lamps in FLFLF grid (3 rows x 5 cols)
 // =============================================================================
-// Each blade transform: T(fanCenter) * R(Y, angle) * T(localOffset) * S(size)
-// This means each blade extends from the motor along local +X, and the Y
-// rotation at the center spins the whole assembly — like a real fan.
+// Room: X in [-12,+12] (24 wide), Z in [-10,+10] (20 deep)
+// FLFLF column pattern:
+//   Col 0 (F): X = -8.0   Col 1 (L): X = -4.0
+//   Col 2 (F): X =  0.0   Col 3 (L): X = +4.0
+//   Col 4 (F): X = +8.0
+// Row pattern (3 rows):
+//   Row 0: Z = -6.0    Row 1: Z = 0.0    Row 2: Z = +6.0
+// Fans at F columns (X=-8, 0, +8), 9 total.
+// Lights at L columns (X=-4, +4), 6 total (handled in BuildPendantLamps).
 // =============================================================================
 void Scene::BuildCeiling() {
-    float fanY = ROOM_HEIGHT - 0.6f;   // 5.4 — well below ceiling slab
-    m_FanCenter = glm::vec3(0.0f, fanY, 0.0f);
+    const float fanY = ROOM_HEIGHT - 0.6f;   // 5.4 — below ceiling slab
+    m_FanCenters.clear();
     m_FanBladeIndices.clear();
 
-    // Rod from ceiling to motor
-    Add("fan_rod", {0.0f, ROOM_HEIGHT - 0.3f, 0.0f}, {0.06f, 0.6f, 0.06f}, METAL_DARK);
+    // Fan X columns and Z rows
+    const float fanX[] = { -8.0f, 0.0f, +8.0f };
+    const float fanZ[] = { -6.0f, 0.0f, +6.0f };
 
-    // Motor housing
-    Add("fan_motor", m_FanCenter, {0.30f, 0.22f, 0.30f}, METAL_DARK);
+    // Helper to add one complete fan at a given (cx, cz)
+    auto AddFan = [&](float cx, float cz, int fanIdx) {
+        std::string id = std::to_string(fanIdx);
+        glm::vec3 center = { cx, fanY, cz };
+        m_FanCenters.push_back(center);
 
-    // 4 blades at 90° apart — rigidly attached to motor
-    for (int i = 0; i < 4; i++) {
-        float angleDeg = static_cast<float>(i) * 90.0f;
+        // Drop rod from ceiling to motor
+        Add("fan" + id + "_rod",
+            { cx, ROOM_HEIGHT - 0.3f, cz },
+            { 0.06f, 0.6f, 0.06f }, METAL_DARK);
 
-        // Build transform: center → rotate → offset → scale
-        // Offset = motor_half(0.15) + blade_half(0.45) = 0.60 — blade starts exactly at motor edge
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, m_FanCenter);
-        model = glm::rotate(model, glm::radians(angleDeg), glm::vec3(0, 1, 0));
-        model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));      // No overlap with motor
-        model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
-        model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
+        // Motor housing
+        Add("fan" + id + "_motor", center, { 0.30f, 0.22f, 0.30f }, METAL_DARK);
 
-        size_t idx = m_Objects.size();
-        m_Objects.push_back({model, model, WOOD_MEDIUM, "fan_blade" + std::to_string(i)});
-        m_FanBladeIndices.push_back(idx);
-    }
+        // 4 blades at 90° apart
+        for (int b = 0; b < 4; b++) {
+            float angleDeg = static_cast<float>(b) * 90.0f;
+
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, center);
+            model = glm::rotate(model, glm::radians(angleDeg), glm::vec3(0, 1, 0));
+            model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));
+            model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
+            model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
+
+            size_t idx = m_Objects.size();
+            m_Objects.push_back({ model, model, WOOD_MEDIUM,
+                "fan" + id + "_blade" + std::to_string(b) });
+            m_FanBladeIndices.push_back(idx);
+        }
+    };
+
+    int fanIdx = 0;
+    for (float cz : fanZ)
+        for (float cx : fanX)
+            AddFan(cx, cz, fanIdx++);
 }
 
 // =============================================================================
 // UpdateAnimations — Spin fan blades, animate interactives (door/windows)
 // =============================================================================
 void Scene::UpdateAnimations(float fanDeltaTime, float globalDeltaTime) {
-    // ---- 1. Fan Animation (continuous) ----
+    // ---- 1. Fan Animation (continuous) — all 9 fans spin in sync ----
     m_FanAngle += m_FanSpeed * fanDeltaTime;
     if (m_FanAngle > 360.0f) m_FanAngle -= 360.0f;
 
-    for (int i = 0; i < 4; i++) {
-        float bladeAngle = m_FanAngle + static_cast<float>(i) * 90.0f;
+    // Each fan k occupies blade slots [k*4 .. k*4+3]
+    const int numFans = static_cast<int>(m_FanCenters.size());
+    for (int k = 0; k < numFans; k++) {
+        const glm::vec3& center = m_FanCenters[k];
+        for (int b = 0; b < 4; b++) {
+            float bladeAngle = m_FanAngle + static_cast<float>(b) * 90.0f;
 
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, m_FanCenter);
-        model = glm::rotate(model, glm::radians(bladeAngle), glm::vec3(0, 1, 0));
-        model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));
-        model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
-        model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, center);
+            model = glm::rotate(model, glm::radians(bladeAngle), glm::vec3(0, 1, 0));
+            model = glm::translate(model, glm::vec3(0.60f, -0.05f, 0.0f));
+            model = glm::rotate(model, glm::radians(5.0f), glm::vec3(0, 0, 1));
+            model = glm::scale(model, glm::vec3(0.90f, 0.03f, 0.22f));
 
-        m_Objects[m_FanBladeIndices[i]].Transform = model;
+            m_Objects[m_FanBladeIndices[k * 4 + b]].Transform = model;
+        }
     }
 
     // ---- 2. Globe Rotation ----
@@ -1024,31 +1052,29 @@ void Scene::AssignTextures() {
 }
 
 // =============================================================================
-// BuildPendantLamps — 3 hanging pendant lights above tables (Phase 7)
+// BuildPendantLamps — 6 pendant lights at 'L' positions in FLFLF grid
 // =============================================================================
-// Each lamp has:
-//   - A thin cord from ceiling to shade
-//   - A lamp shade (tapered-look cuboid)
-//   - A small bright bulb cube (emissive look)
-// X positions match the 3 table columns: -4.5, 0, +4.5
-// Point light sources (in LightState) are positioned at Y=4.8 matching bulb pos.
+// Light L columns: X = -4.0 and X = +4.0
+// Rows: Z = -6.0, 0.0, +6.0
+// Total: 2 columns x 3 rows = 6 lamps
+// Cones are added in BuildCurvedObjects.
 // =============================================================================
 void Scene::BuildPendantLamps() {
-    auto BuildLamp = [&](const std::string& id, float cx) {
-        // Cord — thin vertical rod from ceiling to cone shade
-        Add("lamp_" + id + "_cord",
-            {cx, 5.3f, 0.0f},
-            {0.03f, 0.4f, 0.03f},
-            glm::vec3(0.15f, 0.12f, 0.10f));   // Dark brown
-        // Cone lampshade is added in BuildCurvedObjects (ruled surface).
-        // Box shade and bulb cube are intentionally removed.
-    };
+    const float lampX[] = { -4.0f, +4.0f };
+    const float lampZ[] = { -6.0f,  0.0f, +6.0f };
 
-    BuildLamp("L", -4.5f);
-    // BuildLamp("C",  0.0f); // Removed — conflicts with center ceiling fan
-    BuildLamp("R", +4.5f);
+    int lampIdx = 0;
+    for (float cz : lampZ) {
+        for (float cx : lampX) {
+            std::string id = std::to_string(lampIdx++);
+            Add("lamp_" + id + "_cord",
+                { cx, 5.3f, cz },
+                { 0.03f, 0.4f, 0.03f },
+                glm::vec3(0.15f, 0.12f, 0.10f));
+        }
+    }
 
-    LOG_INFO("BuildPendantLamps: 3 pendant lamps added above tables.");
+    LOG_INFO("BuildPendantLamps: 6 pendant lamps built at FLFLF L-positions.");
 }
 
 // =============================================================================
@@ -1140,29 +1166,25 @@ void Scene::BuildCurvedObjects() {
         m_Objects.back().OriginalTransform = sp;
     }
 
-    // ---- 3. PENDANT LAMP CONES (replace 3 flat box lampshades) ----
-    // The old shade was: {cx, 4.95f, 0.0f}, scale {0.40f, 0.18f, 0.40f}
-    // The cone mesh: apex at Y=1, base at Y=0, radius=1. We want:
-    //   - Apex pointing UP, base opening downward (flip with Y scale negative or rotate 180°)
-    //   - Diameter ~0.50 at opening, height ~0.22
-    //   - Position apex at Y=5.06 (cord attachment), base opening at Y=4.84
-    // Strategy: rotate 180° around X to flip apex down→up, scale(0.25, 0.22, 0.25)
-    auto AddLampCone = [&](const std::string& id, float cx) {
-        CurvedObject cone;
-        cone.Label   = "lamp_" + id + "_cone";
-        cone.Color   = vec3(0.55f, 0.45f, 0.25f);  // Warm tan/brass
-        cone.Mode    = TextureMode::FLAT_COLOR;
-        // Cone: apex at Y=1 (top), base at Y=0 (bottom) in mesh space.
-        // We DON'T flip — open end is already at Y=0 facing down. Perfect for a pendant.
-        // Translate so cone base (Y=0 in mesh) sits at Y=4.84, apex at Y=4.84+0.22=5.06.
-        cone.Transform = translate(mat4(1.0f), vec3(cx, 4.84f, 0.0f))
-                       * scale(mat4(1.0f), vec3(0.25f, 0.22f, 0.25f));
-        cone.Mesh    = Primitives::CreateCone(32);
-        m_CurvedObjects.push_back(std::move(cone));
-    };
-    AddLampCone("L", -4.5f);
-    // AddLampCone("C",  0.0f); // Removed — conflicts with center ceiling fan
-    AddLampCone("R", +4.5f);
+    // ---- 3. PENDANT LAMP CONES — 6 cones at L-positions in FLFLF grid ----
+    // L positions: X = {-4, +4}, Z = {-6, 0, +6}
+    {
+        const float lampX[] = { -4.0f, +4.0f };
+        const float lampZ[] = { -6.0f,  0.0f, +6.0f };
+        int lampIdx = 0;
+        for (float cz : lampZ) {
+            for (float cx : lampX) {
+                CurvedObject cone;
+                cone.Label   = "lamp_" + std::to_string(lampIdx++) + "_cone";
+                cone.Color   = vec3(0.55f, 0.45f, 0.25f);  // Warm tan/brass
+                cone.Mode    = TextureMode::FLAT_COLOR;
+                cone.Transform = translate(mat4(1.0f), vec3(cx, 4.84f, cz))
+                               * scale(mat4(1.0f), vec3(0.25f, 0.22f, 0.25f));
+                cone.Mesh    = Primitives::CreateCone(32);
+                m_CurvedObjects.push_back(std::move(cone));
+            }
+        }
+    }
 
     // ---- 4. DECORATIVE BEZIER VASE by the door ----
     // Door is on right wall (X=+7.9), door center Z=3.5.
