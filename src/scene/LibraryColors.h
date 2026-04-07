@@ -41,4 +41,12 @@ namespace LibraryColors {
     // Metal/lamp
     const glm::vec3 METAL_DARK      = {0.15f, 0.15f, 0.15f};  // Fan fixtures
     const glm::vec3 LAMP_WARM       = {1.00f, 0.92f, 0.60f};  // Pendant bulb color
+
+    // Librarian Desk
+    const glm::vec3 WOOD_MAHOGANY   = {0.36f, 0.17f, 0.06f};  // Deep reddish-brown desk body
+    const glm::vec3 DESK_TRIM       = {0.52f, 0.30f, 0.12f};  // Lighter trim/drawers
+    const glm::vec3 BRASS           = {0.80f, 0.62f, 0.22f};  // Drawer pulls, nameplate
+    const glm::vec3 CUSHION_GREEN   = {0.07f, 0.27f, 0.11f};  // Dark green leather (executive chair)
+    const glm::vec3 PAPER_WHITE     = {0.94f, 0.93f, 0.88f};  // Paper / documents
+    const glm::vec3 LAMP_METAL      = {0.16f, 0.16f, 0.18f};  // Study lamp arms/shade
 }

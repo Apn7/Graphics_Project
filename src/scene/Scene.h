@@ -133,6 +133,7 @@ private:
     void BuildPendantLamps();    // Phase 7: 3 hanging lamps above tables
     void BuildCurvedObjects();   // Phase 8: sphere (globe), cone (lampshade), vase (by door)
     void BuildFractalTree();     // Phase 9: recursive fractal plant growing from the vase
+    void BuildLibrarianDesk();   // Phase 10: posh desk + exec chair + study lamp (spotlight)
 
     // Phase 6: Assign textures and modes after Build
     void AssignTextures();
