@@ -68,8 +68,8 @@ struct LightState {
     //   SpotCutoff      = cos(20°) ≈ 0.9397  — inner bright cone
     //   SpotOuterCutoff = cos(28°) ≈ 0.8829  — outer edge (smooth penumbra)
     bool      SpotLightOn      = true;
-    glm::vec3 SpotLightPos     = glm::vec3(8.80f, 1.63f, 5.50f);  // Inside lamp head
-    glm::vec3 SpotLightDir     = glm::vec3(0.0f, -1.0f, 0.0f);    // Pointing straight down
+    glm::vec3 SpotLightPos     = glm::vec3(8.79f, 1.67f, 5.50f);  // Inside tilted lamp head
+    glm::vec3 SpotLightDir     = glm::normalize(glm::vec3(-0.34f, -0.94f, 0.0f)); // Tilted toward desk center
     glm::vec3 SpotLightColor   = glm::vec3(1.0f, 0.92f, 0.75f);   // Warm incandescent
     float     SpotCutoff       = 0.9397f;   // cos(20°)
     float     SpotOuterCutoff  = 0.8829f;   // cos(28°)
