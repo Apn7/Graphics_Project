@@ -1269,24 +1269,34 @@ void Scene::BuildCurvedObjects() {
         }
     }
 
-    // ---- 5. STUDY LAMP SHADE (cone) — desk lamp on librarian desk ----
-    // Physical lamp model built in BuildLibrarianDesk() (cube arms + base).
-    // The shade is tilted toward the reading surface so the head and spot beam
-    // visually align with the upper arm and desk target area.
-    // Position: (8.80, 1.71, 5.50) — tip of the upper lamp arm.
+    // ---- 5. STUDY LAMP SHADE + BULB — desk lamp on librarian desk ----
     {
+        // Shade mouth sits just past the neck, opening angled down toward desk.
+        // It is slightly lifted so the bulb is visible from the reading side.
+        const vec3 shadeMouth = vec3(8.31f, 1.62f, 6.48f);
+
         CurvedObject shade;
         shade.Label   = "desk_lamp_shade";
-        shade.Color   = vec3(0.16f, 0.16f, 0.18f);  // Dark metal shade
+        shade.Color   = vec3(0.13f, 0.13f, 0.15f);  // Near-black metal
         shade.Mode    = TextureMode::FLAT_COLOR;
-        shade.Transform = translate(mat4(1.0f), vec3(8.80f, 1.71f, 5.50f))
-                        * rotate(mat4(1.0f), radians(-20.0f), vec3(0.0f, 0.0f, 1.0f))
-                        * scale(mat4(1.0f), vec3(0.20f, 0.14f, 0.20f));
-        shade.Mesh    = Primitives::CreateCone(32);
+        shade.Transform = translate(mat4(1.0f), shadeMouth)
+                        * rotate(mat4(1.0f), radians(12.0f), vec3(1.0f, 0.0f, 0.0f))
+                        * rotate(mat4(1.0f), radians(22.0f), vec3(0.0f, 0.0f, 1.0f))
+                        * scale(mat4(1.0f), vec3(0.36f, 0.26f, 0.36f));
+        shade.Mesh    = Primitives::CreateCone(32, false);
         m_CurvedObjects.push_back(std::move(shade));
+
+        CurvedObject bulb;
+        bulb.Label   = "desk_lamp_bulb";
+        bulb.Color   = vec3(1.45f, 1.32f, 0.92f);  // Warm bright bulb
+        bulb.Mode    = TextureMode::FLAT_COLOR;
+        bulb.Transform = translate(mat4(1.0f), vec3(8.27f, 1.73f, 6.50f))
+                       * scale(mat4(1.0f), vec3(0.075f, 0.075f, 0.075f));
+        bulb.Mesh    = Primitives::CreateSphere(18, 18);
+        m_CurvedObjects.push_back(std::move(bulb));
     }
 
-    LOG_INFO("BuildCurvedObjects: globe, 6 lamp cones, 2 vases, 1 desk lamp shade created.");
+    LOG_INFO("BuildCurvedObjects: globe, 6 lamp cones, 2 vases, desk lamp shade, and bulb created.");
 }
 
 // =============================================================================
@@ -1638,20 +1648,39 @@ void Scene::BuildLibrarianDesk() {
         {0.0f, 8.0f, 0.0f},
         {0.04f, 0.26f, 0.32f}, BOOK_GREEN);
 
-    // ---- 8. Study Lamp (arm + base — cone shade is a CurvedObject) ----
-    // Base disc at desk top right corner: (8.90, desk top, 5.50)
-    const float lx = 8.90f, lz = 5.50f;
-    Add("desk_lamp_base",       {lx,        deskTopY + 0.025f, lz},  {0.24f, 0.05f,  0.24f}, metal);
-    Add("desk_lamp_joint_lo",   {lx,        deskTopY + 0.065f, lz},  {0.07f, 0.07f,  0.07f}, metal);
-    Add("desk_lamp_arm_lo",     {lx,        1.225f,            lz},  {0.04f, 0.37f,  0.04f}, metal);
-    Add("desk_lamp_elbow",      {lx,        1.435f,            lz},  {0.08f, 0.08f,  0.08f}, metal);
-    // Upper arm tilted +20° toward desk center (Rz=+20)
-    Add("desk_lamp_arm_hi",     {8.85f,     1.575f,            lz},
-        {0.0f, 0.0f, 20.0f},
-        {0.04f, 0.30f, 0.04f}, metal);
-    // Bulb hint (tiny warm cube inside shade)
-    Add("desk_lamp_bulb",       {8.80f,     1.66f,             lz},  {0.05f, 0.05f,  0.05f},
-        glm::vec3(1.0f, 0.95f, 0.70f));
+    // ---- 8. Study Lamp (articulated desk lamp body) ----
+    {
+        const glm::vec3 lampMetalDark(0.12f, 0.12f, 0.14f);
+        const glm::vec3 lampBrass(0.72f, 0.56f, 0.24f);   // warm brass joints
+        const float lx = 8.84f;
+        const float lz = 6.48f;
+
+        // Base — wide heavy foot + brass accent ring + rounded pivot knob
+        Add("desk_lamp_base",       {lx,         deskTopY + 0.013f, lz}, {0.44f, 0.026f, 0.36f}, lampMetalDark);
+        Add("desk_lamp_base_ring",  {lx,         deskTopY + 0.042f, lz}, {0.30f, 0.032f, 0.24f}, lampBrass);
+        Add("desk_lamp_base_knob",  {lx,         deskTopY + 0.082f, lz}, {0.094f, 0.082f, 0.094f}, lampBrass);
+
+        // Lower arm — slightly straighter toward desk center
+        Add("desk_lamp_arm_lo",     {8.80f, 1.19f, lz},
+            {0.0f, 0.0f, 18.0f},
+            {0.072f, 0.44f, 0.072f}, metal);
+
+        // Elbow pivot — ball joint
+        Add("desk_lamp_elbow",      {8.73f, 1.40f, lz},  {0.125f, 0.125f, 0.125f}, lampBrass);
+
+        // Upper arm — straighter continuation into the lamp head
+        Add("desk_lamp_arm_hi",     {8.60f, 1.56f, lz},
+            {0.0f, 0.0f, 34.0f},
+            {0.062f, 0.36f, 0.062f}, metal);
+
+        // Head pivot — ball joint connecting arm to shade
+        Add("desk_lamp_head",       {8.50f, 1.71f, lz}, {0.112f, 0.112f, 0.112f}, lampBrass);
+
+        // Short neck tube connecting head pivot to shade body
+        Add("desk_lamp_neck",       {8.40f, 1.66f, lz},
+            {0.0f, 0.0f, 32.0f},
+            {0.048f, 0.12f, 0.048f}, lampMetalDark);
+    }
 
     LOG_INFO("BuildLibrarianDesk: desk, exec chair, and study lamp built at (7.5, 6.0).");
 }

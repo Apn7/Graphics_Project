@@ -80,13 +80,13 @@ namespace Primitives {
     // =========================================================================
     // CreateCone — Ruled surface (circle base → tip point)
     // =========================================================================
-    // Generates a closed cone: lateral surface + circular base cap.
+    // Generates a cone with optional circular base cap.
     // Height along +Y axis, apex at (0, height, 0), base at Y=0 radius=1.
     // Phase 8: Used as the pendant lampshade geometry.
     //
     // Returns: unique_ptr<Mesh>
     // =========================================================================
-    std::unique_ptr<Mesh> CreateCone(int slices = 32);
+    std::unique_ptr<Mesh> CreateCone(int slices = 32, bool includeBaseCap = true);
 
     // =========================================================================
     // CreateBezierVase — Surface of revolution from a Bezier profile curve
