@@ -15,7 +15,8 @@
 #include "TextureMode.h"
 
 struct SceneObject {
-    glm::mat4   Transform;      // Pre-computed model matrix
+    glm::mat4   Transform;      // Current model matrix
+    glm::mat4   OriginalTransform; // Phase 8: Saved at build time for interactive animations
     glm::vec3   Color;          // Surface color (flat color or blend tint)
     std::string Label;          // Human-readable name for debugging
 
