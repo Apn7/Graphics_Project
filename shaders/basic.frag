@@ -38,8 +38,8 @@ uniform float u_DirLightIntensity;
 
 // ---- Point Lights ----
 uniform bool  u_PointLightsOn;
-uniform vec3  u_PointLightPos[3];
-uniform vec3  u_PointLightColor[3];
+uniform vec3  u_PointLightPos[6];
+uniform vec3  u_PointLightColor[6];
 uniform float u_PointConstant;
 uniform float u_PointLinear;
 uniform float u_PointQuadratic;
@@ -107,6 +107,9 @@ void main() {
         result += CalcPointLight(0, norm, viewDir, baseColor);
         result += CalcPointLight(1, norm, viewDir, baseColor);
         result += CalcPointLight(2, norm, viewDir, baseColor);
+        result += CalcPointLight(3, norm, viewDir, baseColor);
+        result += CalcPointLight(4, norm, viewDir, baseColor);
+        result += CalcPointLight(5, norm, viewDir, baseColor);
     }
 
     FragColor = vec4(clamp(result, 0.0, 1.0), u_Alpha);
