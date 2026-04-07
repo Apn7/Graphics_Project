@@ -10,6 +10,8 @@
 #include "utils/Logger.h"
 
 #include <vector>
+#include <cmath>
+#include <glm/gtc/constants.hpp>   // glm::pi<float>()
 
 namespace Primitives {
 
@@ -119,6 +121,84 @@ void DrawCube(Shader& shader, const glm::mat4& modelMatrix) {
 
     shader.SetMat4("u_Model", modelMatrix);
     s_Cube->Draw();
+}
+
+// =============================================================================
+// CreateCylinder — Vertical cylinder (radius 0.5, height 1.0)
+// =============================================================================
+std::unique_ptr<Mesh> CreateCylinder(int slices) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    const float height = 1.0f;
+    const float radius = 0.5f;
+
+    // Body
+    for (int i = 0; i <= slices; ++i) {
+        float u = static_cast<float>(i) / slices;
+        float angle = u * 2.0f * glm::pi<float>();
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        glm::vec3 normal = glm::normalize(glm::vec3(x, 0.0f, z));
+
+        // Top vertex of the slice
+        vertices.push_back({ glm::vec3(x, height/2, z), normal, glm::vec2(u, 1.0f) });
+        // Bottom vertex of the slice
+        vertices.push_back({ glm::vec3(x, -height/2, z), normal, glm::vec2(u, 0.0f) });
+    }
+
+    // Body indices
+    for (int i = 0; i < slices; ++i) {
+        int top0 = i * 2;
+        int bot0 = i * 2 + 1;
+        int top1 = (i + 1) * 2;
+        int bot1 = (i + 1) * 2 + 1;
+
+        indices.push_back(top0);
+        indices.push_back(bot0);
+        indices.push_back(bot1);
+
+        indices.push_back(bot1);
+        indices.push_back(top1);
+        indices.push_back(top0);
+    }
+
+    // Top cap
+    int topCenterIndex = static_cast<int>(vertices.size());
+    vertices.push_back({ glm::vec3(0.0f, height/2, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.5f, 0.5f) });
+    int topStartIndex = static_cast<int>(vertices.size());
+    for (int i = 0; i <= slices; ++i) {
+        float u = static_cast<float>(i) / slices;
+        float angle = u * 2.0f * glm::pi<float>();
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        vertices.push_back({ glm::vec3(x, height/2, z), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(x + 0.5f, z + 0.5f) });
+    }
+    for (int i = 0; i < slices; ++i) {
+        indices.push_back(topCenterIndex);
+        indices.push_back(topStartIndex + i + 1);
+        indices.push_back(topStartIndex + i);
+    }
+
+    // Bottom cap
+    int botCenterIndex = static_cast<int>(vertices.size());
+    vertices.push_back({ glm::vec3(0.0f, -height/2, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.5f, 0.5f) });
+    int botStartIndex = static_cast<int>(vertices.size());
+    for (int i = 0; i <= slices; ++i) {
+        float u = static_cast<float>(i) / slices;
+        float angle = u * 2.0f * glm::pi<float>();
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        vertices.push_back({ glm::vec3(x, -height/2, z), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(x + 0.5f, 1.0f - (z + 0.5f)) });
+    }
+    for (int i = 0; i < slices; ++i) {
+        indices.push_back(botCenterIndex);
+        indices.push_back(botStartIndex + i);
+        indices.push_back(botStartIndex + i + 1);
+    }
+
+    LOG_INFO("Primitives: Created cylinder");
+    return std::make_unique<Mesh>(vertices, indices);
 }
 
 // =============================================================================
@@ -297,16 +377,16 @@ std::unique_ptr<Mesh> CreateBezierVase(int profileSteps, int radialSlices) {
     const float PI = 3.14159265358979323846f;
 
     // ---- Bezier control points: (radius, height) ----
-    // Each is a 2D point. Designed so the vase is ~1 unit tall and ~0.5 wide at belly.
-    // Tweak these to change shape. The vase will be scaled in the scene.
-    const glm::vec2 P0 = { 0.10f, 0.00f };   // Base foot — narrow
-    const glm::vec2 P1 = { 0.50f, 0.20f };   // Lower belly — wide bulge
-    const glm::vec2 P2 = { 0.45f, 0.70f };   // Upper belly
-    const glm::vec2 P3 = { 0.20f, 1.00f };   // Rim — slightly narrower
-    // Extra segments: we'll use a multi-segment Bezier for the full vase shape
-    // Segment 2: rim → neck → opening
-    const glm::vec2 P4 = { 0.15f, 1.10f };   // Neck
-    const glm::vec2 P5 = { 0.22f, 1.18f };   // Lip flare
+    // Redesigned profile: stable wide foot → pronounced belly → tight neck → flared lip.
+    // This gives a classic tall decorative vase silhouette (amphora / plant vase style).
+    // Profile is normalised to height=1.0; the scene scales it to world units.
+    const glm::vec2 P0 = { 0.16f, 0.00f };   // Wide stable foot
+    const glm::vec2 P1 = { 0.50f, 0.18f };   // Rapid outward belly bulge
+    const glm::vec2 P2 = { 0.42f, 0.56f };   // Maintained mid-belly fullness
+    const glm::vec2 P3 = { 0.18f, 0.80f };   // Strong taper to narrow neck
+    // Segment 2: neck → throat → flared lip opening
+    const glm::vec2 P4 = { 0.14f, 0.91f };   // Tight throat (narrowest point)
+    const glm::vec2 P5 = { 0.30f, 1.00f };   // Wide flared lip — opening for plant
 
     // We'll sample the profile by evaluating two cubic Bezier segments:
     // Segment A: P0→P1→P2→P3  (bottom half: foot to rim)

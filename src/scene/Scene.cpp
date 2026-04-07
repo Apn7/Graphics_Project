@@ -97,6 +97,9 @@ void Scene::Build() {
     // Phase 8: curved objects (sphere, cone, vase)
     BuildCurvedObjects();
 
+    // Phase 9: fractal plant growing from the vase
+    BuildFractalTree();
+
     // Phase 6: assign textures and modes
     AssignTextures();
 
@@ -660,26 +663,37 @@ void Scene::BuildBooks() {
 
 
 // =============================================================================
-// BuildTables — One table per shelf column (X = -7.5, 0, +7.5)
+// BuildTables — 3x3 grid of tables under each ceiling fan (X=-7.5/0/+7.5, Z=-6/0/+6)
 // =============================================================================
 void Scene::BuildTables() {
-    auto BuildTableSet = [&](const std::string& id, float cx) {
+    auto BuildTableSet = [&](const std::string& id, float cx, float cz) {
         // Tabletop
-        Add("table_" + id + "_top", {cx, 0.78f, 0.0f}, {2.4f, 0.10f, 1.2f}, WOOD_TABLE);
+        Add("table_" + id + "_top", {cx, 0.78f, cz}, {2.4f, 0.10f, 1.2f}, WOOD_TABLE);
         // 4 legs
-        Add("table_" + id + "_leg0", {cx - 1.0f, 0.39f, -0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add("table_" + id + "_leg1", {cx + 1.0f, 0.39f, -0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add("table_" + id + "_leg2", {cx - 1.0f, 0.39f, +0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
-        Add("table_" + id + "_leg3", {cx + 1.0f, 0.39f, +0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg0", {cx - 1.0f, 0.39f, cz - 0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg1", {cx + 1.0f, 0.39f, cz - 0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg2", {cx - 1.0f, 0.39f, cz + 0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
+        Add("table_" + id + "_leg3", {cx + 1.0f, 0.39f, cz + 0.45f}, {0.08f, 0.78f, 0.08f}, WOOD_MEDIUM);
     };
 
-    BuildTableSet("L",  -7.5f);   // Left   — aligned with shelf_back_A / shelf_front_A
-    BuildTableSet("C",   0.0f);   // Center — aligned with shelf_back_B / shelf_front_B
-    BuildTableSet("R",  +7.5f);   // Right  — aligned with shelf_back_C / shelf_front_C
+    // Middle row (Z=0) — under fans at Z=0
+    BuildTableSet("L",   -7.5f,  0.0f);
+    BuildTableSet("C",    0.0f,  0.0f);
+    BuildTableSet("R",   +7.5f,  0.0f);
+
+    // Back row (Z=-6) — under fans at Z=-6
+    BuildTableSet("Lb",  -7.5f, -6.0f);
+    BuildTableSet("Cb",   0.0f, -6.0f);
+    BuildTableSet("Rb",  +7.5f, -6.0f);
+
+    // Front row (Z=+6) — under fans at Z=+6
+    BuildTableSet("Lf",  -7.5f, +6.0f);
+    BuildTableSet("Cf",   0.0f, +6.0f);
+    BuildTableSet("Rf",  +7.5f, +6.0f);
 }
 
 // =============================================================================
-// BuildChairs — 4 chairs per table set (2 per long Z-side), 3 sets
+// BuildChairs — 4 chairs per table set (2 per long Z-side), 9 sets (3x3 grid)
 // =============================================================================
 // Each chair at Z=±1.10 from table center, X=±0.60 from table center
 // facingSign +1 = faces -Z (sits on +Z side, backrest toward +Z)
@@ -711,18 +725,29 @@ void Scene::BuildChairs() {
         Add(prefix + "_arm_r", pos + glm::vec3( 0.27f, 0.65f, 0), {0.04f, 0.04f, 0.48f}, WOOD_MEDIUM);
     };
 
-    auto BuildChairSet = [&](const std::string& id, float cx) {
+    auto BuildChairSet = [&](const std::string& id, float cx, float cz) {
         // +Z side: 2 chairs facing -Z (toward table)
-        BuildChair("chair_" + id + "_zp_l", {cx - 0.60f, 0.0f,  1.10f}, +1.0f);
-        BuildChair("chair_" + id + "_zp_r", {cx + 0.60f, 0.0f,  1.10f}, +1.0f);
+        BuildChair("chair_" + id + "_zp_l", {cx - 0.60f, 0.0f, cz + 1.10f}, +1.0f);
+        BuildChair("chair_" + id + "_zp_r", {cx + 0.60f, 0.0f, cz + 1.10f}, +1.0f);
         // -Z side: 2 chairs facing +Z (toward table)
-        BuildChair("chair_" + id + "_zn_l", {cx - 0.60f, 0.0f, -1.10f}, -1.0f);
-        BuildChair("chair_" + id + "_zn_r", {cx + 0.60f, 0.0f, -1.10f}, -1.0f);
+        BuildChair("chair_" + id + "_zn_l", {cx - 0.60f, 0.0f, cz - 1.10f}, -1.0f);
+        BuildChair("chair_" + id + "_zn_r", {cx + 0.60f, 0.0f, cz - 1.10f}, -1.0f);
     };
 
-    BuildChairSet("L", -7.5f);   // Left column
-    BuildChairSet("C",  0.0f);   // Center column
-    BuildChairSet("R", +7.5f);   // Right column
+    // Middle row (Z=0) — existing
+    BuildChairSet("L",   -7.5f,  0.0f);
+    BuildChairSet("C",    0.0f,  0.0f);
+    BuildChairSet("R",   +7.5f,  0.0f);
+
+    // Back row (Z=-6) — under fans at Z=-6
+    BuildChairSet("Lb",  -7.5f, -6.0f);
+    BuildChairSet("Cb",   0.0f, -6.0f);
+    BuildChairSet("Rb",  +7.5f, -6.0f);
+
+    // Front row (Z=+6) — under fans at Z=+6
+    BuildChairSet("Lf",  -7.5f, +6.0f);
+    BuildChairSet("Cf",   0.0f, +6.0f);
+    BuildChairSet("Rf",  +7.5f, +6.0f);
 }
 
 // =============================================================================
@@ -754,12 +779,22 @@ void Scene::BuildCeiling() {
         m_FanCenters.push_back(center);
 
         // Drop rod from ceiling to motor
-        Add("fan" + id + "_rod",
-            { cx, ROOM_HEIGHT - 0.3f, cz },
-            { 0.06f, 0.6f, 0.06f }, METAL_DARK);
+        CurvedObject rod;
+        rod.Label = "fan" + id + "_rod";
+        rod.Color = METAL_DARK;
+        rod.Mode = TextureMode::FLAT_COLOR;
+        rod.Transform = Transform::TRS({ cx, ROOM_HEIGHT - 0.3f, cz }, glm::vec3(0.0f), glm::vec3(0.06f, 0.6f, 0.06f));
+        rod.Mesh = Primitives::CreateCylinder();
+        m_CurvedObjects.push_back(std::move(rod));
 
         // Motor housing
-        Add("fan" + id + "_motor", center, { 0.30f, 0.22f, 0.30f }, METAL_DARK);
+        CurvedObject motor;
+        motor.Label = "fan" + id + "_motor";
+        motor.Color = METAL_DARK;
+        motor.Mode = TextureMode::FLAT_COLOR;
+        motor.Transform = Transform::TRS(center, glm::vec3(0.0f), glm::vec3(0.30f, 0.22f, 0.30f));
+        motor.Mesh = Primitives::CreateCylinder();
+        m_CurvedObjects.push_back(std::move(motor));
 
         // 4 blades at 90° apart
         for (int b = 0; b < 4; b++) {
@@ -1186,24 +1221,254 @@ void Scene::BuildCurvedObjects() {
         }
     }
 
-    // ---- 4. DECORATIVE BEZIER VASE by the door ----
-    // Door is on right wall (X=+7.9), door center Z=3.5.
-    // Vase placed inside room slightly left of door: X=+6.2, Z=+3.5, base at floor (Y=0).
-    // Vase profile height ~1.18 units in mesh space. Scale to look tall: height=1.5, width=0.5.
-    // Scalable: fractal tree can be placed at Y=1.5 above vase base.
+    // ---- 4. DECORATIVE BEZIER VASES — one by door center + two flanking the door frame ----
+    // All vases: scale (0.42, 1.2, 0.42) → belly ~0.21 world radius, lip at Y=1.2.
+    // Fractal trees start at lip Y=1.2 for each vase.
+    //
+    // Door opening: Z ∈ [2.5, 4.5] on the right wall (X=+8).
+    //   vase_door     — Z=3.5 (door center, slightly inside room at X=6.2)
+    //   vase_door_lo  — Z=1.8 (low-Z flank, just below door frame)
+    //   vase_door_hi  — Z=5.2 (high-Z flank, just above door frame)
     {
-        CurvedObject vase;
-        vase.Label   = "vase_door";
-        vase.Color   = vec3(0.45f, 0.35f, 0.65f);  // Deep ceramic purple
-        vase.Mode    = TextureMode::FLAT_COLOR;
-        // Translate base of vase to floor level. Profile starts at Y=0 in mesh space.
-        // Scale: width=0.5 (radius up to 0.5*0.5=0.25 world units), height=1.5
-        vase.Transform = translate(mat4(1.0f), vec3(6.2f, 0.0f, 3.5f))
-                       * scale(mat4(1.0f), vec3(0.5f, 1.5f, 0.5f));
-        vase.Mesh    = Primitives::CreateBezierVase(50, 60);
-        m_CurvedObjects.push_back(std::move(vase));
+        struct VaseDef { const char* label; float x, z; };
+        const VaseDef vaseDefs[] = {
+            { "vase_door",    6.2f, 3.5f },
+            { "vase_door_lo", 6.8f, 1.8f },
+            { "vase_door_hi", 6.8f, 5.2f },
+        };
+        for (const auto& v : vaseDefs) {
+            CurvedObject vase;
+            vase.Label   = v.label;
+            vase.Color   = vec3(0.70f, 0.36f, 0.22f);  // Warm terracotta ceramic
+            vase.Mode    = TextureMode::FLAT_COLOR;
+            vase.Transform = translate(mat4(1.0f), vec3(v.x, 0.0f, v.z))
+                           * scale(mat4(1.0f), vec3(0.42f, 1.2f, 0.42f));
+            vase.Mesh    = Primitives::CreateBezierVase(60, 72);
+            m_CurvedObjects.push_back(std::move(vase));
+        }
     }
 
-    LOG_INFO("BuildCurvedObjects: globe, 3 lamp cones, vase created.");
+    LOG_INFO("BuildCurvedObjects: globe, 6 lamp cones, 3 vases created.");
 }
 
+// =============================================================================
+// BuildFractalTree — Recursive fractal plant growing from the decorative vase
+// =============================================================================
+// Algorithm: iterative DFS (avoids deep call-stack on Windows).
+// Each branch is an axis-aligned unit cube rotated so its local +Y aligns with
+// the branch direction, then scaled to (thickness × length × thickness).
+//
+// At depth==0 the main tree calls AddFernFrond, which itself runs a depth-2
+// mini-fractal of tiny twig branches. The tips of those mini-branches are FLAT
+// leaf quads (scale X=width, Y=length, Z≈0.005 — one dimension near-zero),
+// each "twisted" around its length axis so adjacent leaves face different
+// directions — producing a self-similar fern frond that visibly shows the
+// fractal branching at the leaf scale, not just cubes.
+//
+// Three vases, all scale (0.42, 1.2, 0.42) → lip at world Y = 1.2:
+//   vase_door     (6.2, 0, 3.5) — door center
+//   vase_door_lo  (6.8, 0, 1.8) — low-Z door flank
+//   vase_door_hi  (6.8, 0, 5.2) — high-Z door flank
+//
+// Object count per plant (smaller trunk: len=0.30, thick=0.036):
+//   Main branches (depth 5 tree): 31
+//   Fronds per terminal (depth 2): 3 mini-branches + 8 flat leaf blades = 11
+//   Per plant: 31 + 32 × 11 = 383  |  3 plants total: ~1149 objects
+// =============================================================================
+void Scene::BuildFractalTree() {
+    using namespace glm;
+
+    // -----------------------------------------------------------------
+    // BranchMat: model matrix for an elongated cube acting as one branch.
+    // Rotates the cube's local +Y to face 'dir', centers it between
+    // 'base' and 'base + dir*len', scales cross-section to 'thick'.
+    // -----------------------------------------------------------------
+    auto BranchMat = [](vec3 base, vec3 dir, float len, float thick) -> mat4 {
+        vec3 center = base + dir * (len * 0.5f);
+        vec3 yAxis(0.0f, 1.0f, 0.0f);
+
+        mat4 T = translate(mat4(1.0f), center);
+
+        vec3  axis = cross(yAxis, dir);
+        float sinA = length(axis);
+        float cosA = dot(yAxis, dir);
+        mat4 R;
+        if (sinA > 0.001f)
+            R = rotate(mat4(1.0f), std::atan2(sinA, cosA), normalize(axis));
+        else
+            R = (cosA > 0.0f) ? mat4(1.0f)
+                              : rotate(mat4(1.0f), 3.14159265f, vec3(1.0f, 0.0f, 0.0f));
+
+        mat4 S = scale(mat4(1.0f), vec3(thick, len, thick));
+        return T * R * S;
+    };
+
+    // -----------------------------------------------------------------
+    // LeafMat: flat leaf-blade transform.
+    // The blade is elongated along 'dir' (Y after rotation), wide in X,
+    // and nearly flat in Z (thickness ≈ 0.005). A 'twist' angle rotates
+    // the blade around its length axis so adjacent leaves face different
+    // directions — giving natural, non-planar leaf arrangement.
+    // -----------------------------------------------------------------
+    auto LeafMat = [](vec3 base, vec3 dir, float len, float width, float twist) -> mat4 {
+        vec3 center = base + dir * (len * 0.5f);
+        vec3 yAxis(0.0f, 1.0f, 0.0f);
+        mat4 T = translate(mat4(1.0f), center);
+
+        vec3  axis = cross(yAxis, dir);
+        float sinA = length(axis);
+        float cosA = dot(yAxis, dir);
+        mat4 R;
+        if (sinA > 0.001f)
+            R = rotate(mat4(1.0f), std::atan2(sinA, cosA), normalize(axis));
+        else
+            R = (cosA > 0.0f) ? mat4(1.0f)
+                              : rotate(mat4(1.0f), 3.14159265f, vec3(1.0f, 0.0f, 0.0f));
+
+        // Twist around the local length axis (Y in unrotated space),
+        // then align that axis to dir — gives each leaf its own face direction
+        mat4 Tw = rotate(mat4(1.0f), twist, yAxis);
+        mat4 S  = scale(mat4(1.0f), vec3(width, len, 0.005f)); // almost-2D leaf blade
+        return T * R * Tw * S;
+    };
+
+    // Branch colours (darker toward trunk, lighter toward twigs)
+    const vec3 colTrunk (0.42f, 0.25f, 0.10f);
+    const vec3 colBranch(0.32f, 0.18f, 0.08f);
+    const vec3 colTwig  (0.22f, 0.13f, 0.06f);
+
+    // Leaf colours — three shades of green for variety
+    const vec3 colLeaf1 (0.14f, 0.54f, 0.18f);  // Mid green
+    const vec3 colLeaf2 (0.22f, 0.66f, 0.10f);  // Bright lime green
+    const vec3 colLeaf3 (0.09f, 0.42f, 0.22f);  // Deep forest green
+    const vec3 leafPalette[3] = { colLeaf1, colLeaf2, colLeaf3 };
+
+    int counter = 0;
+
+    // -----------------------------------------------------------------
+    // AddFernFrond: depth-2 mini-fractal placed at each main tree terminal.
+    //
+    // Replaces the old flat cube leaf clusters. Each frond is a self-similar
+    // miniature of the main tree structure — showing fractal geometry at the
+    // leaf scale. Frond tips are flat leaf blades (not cubes).
+    //
+    //  frond depth 2 → 1 mini-stem
+    //  frond depth 1 → 2 mini-twigs
+    //  frond depth 0 → 4 flat leaf blades (total per frond: 3 branches + 4 leaves)
+    // -----------------------------------------------------------------
+    auto AddFernFrond = [&](vec3 pos, vec3 stemDir) {
+        struct MiniTask { vec3 base, dir; float len, thick; int depth; };
+        std::vector<MiniTask> miniStack;
+        // Initial frond stem: short and thin — matches the scale of the
+        // terminal twigs of the main tree after 5 levels of taper
+        miniStack.push_back({ pos, stemDir, 0.07f, 0.007f, 2 });
+
+        // Split axes for the frond — perpendicular to the main tree axes
+        // to give 3-D spread at the frond level as well
+        const vec3 miniSplitA(0.0f, 0.0f, 1.0f);
+        const vec3 miniSplitB(1.0f, 0.0f, 0.0f);
+        int leafIdx = 0;
+
+        while (!miniStack.empty()) {
+            MiniTask mt = miniStack.back();
+            miniStack.pop_back();
+
+            if (mt.depth == 0) {
+                // Two flat leaf blades per tip — second rotated 70° for denser foliage
+                for (int li = 0; li < 2; ++li) {
+                    float twist = radians(float(leafIdx) * 55.0f + float(li) * 70.0f);
+                    SceneObject leaf;
+                    leaf.Label             = "tree_leaf_" + std::to_string(counter++);
+                    leaf.Color             = leafPalette[(leafIdx + li) % 3];
+                    leaf.Mode              = TextureMode::FLAT_COLOR;
+                    leaf.Transform         = LeafMat(mt.base, mt.dir,
+                                                     mt.len * 1.6f,
+                                                     0.065f,
+                                                     twist);
+                    leaf.OriginalTransform = leaf.Transform;
+                    m_Objects.push_back(leaf);
+                }
+                ++leafIdx;
+                continue;
+            }
+
+            // Mini twig branch (same cube mechanism as main tree)
+            SceneObject twig;
+            twig.Label             = "tree_leaf_stem_" + std::to_string(counter++);
+            twig.Color             = colTwig;
+            twig.Mode              = TextureMode::FLAT_COLOR;
+            twig.Transform         = BranchMat(mt.base, mt.dir, mt.len, mt.thick);
+            twig.OriginalTransform = twig.Transform;
+            m_Objects.push_back(twig);
+
+            vec3  endPt = mt.base + mt.dir * mt.len;
+            // Wider split angle than main tree → fern-like open fan
+            float angle = radians(38.0f);
+            vec3 dirA = normalize(vec3(rotate(mat4(1.0f),  angle, miniSplitA) * vec4(mt.dir, 0.0f)));
+            vec3 dirB = normalize(vec3(rotate(mat4(1.0f), -angle, miniSplitB) * vec4(mt.dir, 0.0f)));
+
+            miniStack.push_back({ endPt, dirA, mt.len * 0.65f, mt.thick * 0.65f, mt.depth - 1 });
+            miniStack.push_back({ endPt, dirB, mt.len * 0.65f, mt.thick * 0.65f, mt.depth - 1 });
+        }
+    };
+
+    // -----------------------------------------------------------------
+    // Plant positions — vase scale Y=1.2 → lip at world Y=1.2 for all three.
+    // Original vase (door center) + two flanking the door frame on each side.
+    // Door opening: Z ∈ [2.5, 4.5] on right wall.
+    // -----------------------------------------------------------------
+    const vec3 plantBases[] = {
+        vec3(6.2f, 1.2f, 3.5f),   // original — door center
+        vec3(6.8f, 1.2f, 1.8f),   // low-Z door flank (below Z=2.5 frame)
+        vec3(6.8f, 1.2f, 5.2f),   // high-Z door flank (above Z=4.5 frame)
+    };
+
+    // -----------------------------------------------------------------
+    // Main tree: iterative DFS per plant — avoids stack overflow on Windows
+    // -----------------------------------------------------------------
+    struct Task { vec3 base, dir; float len, thick; int depth; };
+    const vec3 splitAxisA(0.0f, 0.0f, 1.0f);  // Child A tilts in XY plane (around Z)
+    const vec3 splitAxisB(1.0f, 0.0f, 0.0f);  // Child B tilts in YZ plane (around X)
+
+    for (const vec3& treeBase : plantBases) {
+        std::vector<Task> taskStack;
+        taskStack.reserve(128);
+        // Smaller trunk: len=0.30 (was 0.45), thick=0.036 (was 0.055)
+        taskStack.push_back({ treeBase, vec3(0.0f, 1.0f, 0.0f), 0.30f, 0.036f, 5 });
+
+        while (!taskStack.empty()) {
+            Task t = taskStack.back();
+            taskStack.pop_back();
+
+            if (t.depth == 0) {
+                // Fern frond (depth-2 mini-fractal with flat leaf blades) at branch tip
+                AddFernFrond(t.base, t.dir);
+                continue;
+            }
+
+            SceneObject branch;
+            branch.Label             = "tree_branch_" + std::to_string(counter++);
+            branch.Color             = (t.depth >= 4) ? colTrunk
+                                     : (t.depth >= 2) ? colBranch
+                                     :                  colTwig;
+            branch.Mode              = TextureMode::FLAT_COLOR;
+            branch.Transform         = BranchMat(t.base, t.dir, t.len, t.thick);
+            branch.OriginalTransform = branch.Transform;
+            m_Objects.push_back(branch);
+
+            vec3  endPt  = t.base + t.dir * t.len;
+            float cLen   = t.len   * 0.67f;   // each child 67% of parent length
+            float cThick = t.thick * 0.65f;   // taper cross-section
+            // Spread angle opens slightly wider at shallower depths
+            float angle  = radians(26.0f + float(5 - t.depth) * 2.0f);
+
+            vec3 dirA = normalize(vec3(rotate(mat4(1.0f),  angle, splitAxisA) * vec4(t.dir, 0.0f)));
+            vec3 dirB = normalize(vec3(rotate(mat4(1.0f),  angle, splitAxisB) * vec4(t.dir, 0.0f)));
+
+            taskStack.push_back({ endPt, dirA, cLen, cThick, t.depth - 1 });
+            taskStack.push_back({ endPt, dirB, cLen, cThick, t.depth - 1 });
+        }
+    }
+
+    LOG_INFO("BuildFractalTree: " + std::to_string(counter) + " tree objects across 3 plants.");
+}

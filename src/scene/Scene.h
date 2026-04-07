@@ -31,8 +31,8 @@ class Mesh;
 // =============================================================================
 struct CurvedObject {
     std::unique_ptr<Mesh>  Mesh;           // Owns its mesh
-    glm::mat4              Transform;      // Pre-computed model matrix
-    glm::vec3              Color;          // Flat/surface color
+    glm::mat4              Transform = glm::mat4(1.0f);      // Pre-computed model matrix
+    glm::vec3              Color = glm::vec3(1.0f);          // Flat/surface color
     std::string            Label;          // Debug name
     unsigned int           TextureID = 0;  // 0 = flat color
     TextureMode            Mode = TextureMode::FLAT_COLOR;
@@ -132,6 +132,7 @@ private:
     void BuildBooks();
     void BuildPendantLamps();    // Phase 7: 3 hanging lamps above tables
     void BuildCurvedObjects();   // Phase 8: sphere (globe), cone (lampshade), vase (by door)
+    void BuildFractalTree();     // Phase 9: recursive fractal plant growing from the vase
 
     // Phase 6: Assign textures and modes after Build
     void AssignTextures();

@@ -56,6 +56,16 @@ namespace Primitives {
     // TODO Phase 5: Add CreateBookshelf(), CreateChair(), CreateTable(), CreateFan()
 
     // =========================================================================
+    // CreateCylinder — Cylinder with top and bottom caps
+    // =========================================================================
+    // Generates a vertical cylinder from Y=-0.5 to Y=0.5, radius=0.5.
+    // Phase 8: Used for ceiling fan motors.
+    //
+    // Returns: unique_ptr<Mesh>
+    // =========================================================================
+    std::unique_ptr<Mesh> CreateCylinder(int slices = 32);
+
+    // =========================================================================
     // CreateSphere — UV sphere (parametric surface of revolution)
     // =========================================================================
     // Generates a unit sphere (radius = 1) centered at origin.
