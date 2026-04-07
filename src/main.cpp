@@ -308,25 +308,30 @@ int main() {
         }
         hLast = hNow; jLast = jNow;
 
-        // ---- Update window title ----
-        float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
-        glm::vec3 pos = camera.GetPosition();
-        const char* polyModeStr[] = { "Fill", "Wire(F5)", "Pts(F6)" };
-        const char* texModeStr[]  = { "Flat(2)", "Simple(3)", "VtxBlend(4)", "FragBlend(5)" };
-        std::string texLabel = (g_TexOverride == GlobalTextureOverride::NONE)
-            ? "PerObj(1)"
-            : texModeStr[static_cast<int>(g_TexOverride)];
+        // ---- Update window title (throttled to avoid per-frame string allocs + syscall) ----
+        static float titleTimer = 0.0f;
+        titleTimer += deltaTime;
+        if (titleTimer >= 0.5f) {
+            titleTimer = 0.0f;
+            float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+            glm::vec3 pos = camera.GetPosition();
+            const char* polyModeStr[] = { "Fill", "Wire(F5)", "Pts(F6)" };
+            const char* texModeStr[]  = { "Flat(2)", "Simple(3)", "VtxBlend(4)", "FragBlend(5)" };
+            std::string texLabel = (g_TexOverride == GlobalTextureOverride::NONE)
+                ? "PerObj(1)"
+                : texModeStr[static_cast<int>(g_TexOverride)];
 
-        std::string title = "3D Library | FPS: " + std::to_string(static_cast<int>(fps))
-            + " | Pos: ("
-            + std::to_string(static_cast<int>(pos.x)) + ", "
-            + std::to_string(static_cast<int>(pos.y)) + ", "
-            + std::to_string(static_cast<int>(pos.z)) + ")"
-            + " | Objs: " + std::to_string(scene.GetObjectCount())
-            + " | Poly: " + polyModeStr[g_PolyMode]
-            + " | Tex: " + texLabel
-            + " | Light: " + (g_Lights.GlobalOn ? (g_Lights.NightMode ? "Night" : "Day") : "Off");
-        glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
+            std::string title = "3D Library | FPS: " + std::to_string(static_cast<int>(fps))
+                + " | Pos: ("
+                + std::to_string(static_cast<int>(pos.x)) + ", "
+                + std::to_string(static_cast<int>(pos.y)) + ", "
+                + std::to_string(static_cast<int>(pos.z)) + ")"
+                + " | Objs: " + std::to_string(scene.GetObjectCount())
+                + " | Poly: " + polyModeStr[g_PolyMode]
+                + " | Tex: " + texLabel
+                + " | Light: " + (g_Lights.GlobalOn ? (g_Lights.NightMode ? "Night" : "Day") : "Off");
+            glfwSetWindowTitle(window.GetNativeWindow(), title.c_str());
+        }
 
         // ---- Clear screen ----
         Renderer::Clear(BG_RED, BG_GREEN, BG_BLUE);
