@@ -64,18 +64,19 @@ struct LightState {
     };
 
     // ---- Spot Light (librarian's study lamp on the desk) ----
-    // Toggle: Key 3.  Cutoff angles stored as cosines for efficient dot-product compare.
-    //   SpotCutoff      = cos(20°) ≈ 0.9397  — inner bright cone
-    //   SpotOuterCutoff = cos(28°) ≈ 0.8829  — outer edge (smooth penumbra)
+    // Toggle: Key 3.  Tighter cone aimed at the reading surface to keep the
+    // beam on the desktop instead of spilling under it.
+    //   SpotCutoff      = cos(15°) ≈ 0.9659  — inner bright cone
+    //   SpotOuterCutoff = cos(21°) ≈ 0.9336  — outer edge (smooth penumbra)
     bool      SpotLightOn      = true;
-    glm::vec3 SpotLightPos     = glm::vec3(8.79f, 1.67f, 5.50f);  // Inside tilted lamp head
-    glm::vec3 SpotLightDir     = glm::normalize(glm::vec3(-0.34f, -0.94f, 0.0f)); // Tilted toward desk center
-    glm::vec3 SpotLightColor   = glm::vec3(1.0f, 0.92f, 0.75f);   // Warm incandescent
-    float     SpotCutoff       = 0.9397f;   // cos(20°)
-    float     SpotOuterCutoff  = 0.8829f;   // cos(28°)
+    glm::vec3 SpotLightPos     = glm::vec3(8.27f, 1.73f, 6.50f);  // Centered on the bulb inside the open cone
+    glm::vec3 SpotLightDir     = glm::normalize(glm::vec3(-0.52f, -0.77f, -0.36f)); // Aimed at the reading surface
+    glm::vec3 SpotLightColor   = glm::vec3(1.0f, 0.95f, 0.80f);   // Warm incandescent
+    float     SpotCutoff       = 0.9659f;   // cos(15°)
+    float     SpotOuterCutoff  = 0.9336f;   // cos(21°)
     float     SpotConstant     = 1.0f;
-    float     SpotLinear       = 0.22f;
-    float     SpotQuadratic    = 0.20f;
+    float     SpotLinear       = 0.32f;
+    float     SpotQuadratic    = 0.42f;
 
     // ---- Material defaults (applied to all objects uniformly) ----
     float AmbientStrength   = 0.18f;

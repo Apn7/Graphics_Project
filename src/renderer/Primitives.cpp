@@ -265,7 +265,7 @@ std::unique_ptr<Mesh> CreateSphere(int stacks, int slices) {
 }
 
 // =============================================================================
-// CreateCone — Ruled surface: lateral triangles + base cap (Phase 8)
+// CreateCone — Ruled surface with optional base cap (Phase 8)
 // =============================================================================
 // A cone is the simplest ruled surface:
 //   - Every lateral triangle has one edge on the base circle and one vertex at apex
@@ -274,7 +274,7 @@ std::unique_ptr<Mesh> CreateSphere(int stacks, int slices) {
 // Scale in the scene to fit as lampshade: scale(baseRadius, height, baseRadius).
 // Normals on lateral face are perpendicular to the slant surface.
 // =============================================================================
-std::unique_ptr<Mesh> CreateCone(int slices) {
+std::unique_ptr<Mesh> CreateCone(int slices, bool includeBaseCap) {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
@@ -326,25 +326,27 @@ std::unique_ptr<Mesh> CreateCone(int slices) {
         idx += 3;
     }
 
-    // ---- Base cap (disk) — normal points DOWN (-Y) ----
-    glm::vec3 baseCenterPos = { 0.0f, baseY, 0.0f };
-    glm::vec3 baseNormal    = { 0.0f, -1.0f, 0.0f };
-    unsigned int centerIdx  = idx;
-    vertices.push_back({ baseCenterPos, baseNormal, { 0.5f, 0.5f } });
-    idx++;
-
-    for (int j = 0; j <= slices; j++) {
-        float theta = 2.0f * PI * static_cast<float>(j) / static_cast<float>(slices);
-        glm::vec3 p = { radius * std::cos(theta), baseY, radius * std::sin(theta) };
-        glm::vec2 uv = { 0.5f + 0.5f * std::cos(theta), 0.5f + 0.5f * std::sin(theta) };
-        vertices.push_back({ p, baseNormal, uv });
-
-        if (j < slices) {
-            indices.push_back(centerIdx);
-            indices.push_back(idx + 1);
-            indices.push_back(idx);
-        }
+    if (includeBaseCap) {
+        // ---- Base cap (disk) — normal points DOWN (-Y) ----
+        glm::vec3 baseCenterPos = { 0.0f, baseY, 0.0f };
+        glm::vec3 baseNormal    = { 0.0f, -1.0f, 0.0f };
+        unsigned int centerIdx  = idx;
+        vertices.push_back({ baseCenterPos, baseNormal, { 0.5f, 0.5f } });
         idx++;
+
+        for (int j = 0; j <= slices; j++) {
+            float theta = 2.0f * PI * static_cast<float>(j) / static_cast<float>(slices);
+            glm::vec3 p = { radius * std::cos(theta), baseY, radius * std::sin(theta) };
+            glm::vec2 uv = { 0.5f + 0.5f * std::cos(theta), 0.5f + 0.5f * std::sin(theta) };
+            vertices.push_back({ p, baseNormal, uv });
+
+            if (j < slices) {
+                indices.push_back(centerIdx);
+                indices.push_back(idx + 1);
+                indices.push_back(idx);
+            }
+            idx++;
+        }
     }
 
     LOG_INFO("Primitives: Created cone (" + std::to_string(vertices.size()) +
