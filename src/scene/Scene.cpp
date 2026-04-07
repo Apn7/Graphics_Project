@@ -1105,10 +1105,10 @@ void Scene::UpdateAnimations(float fanDeltaTime, float globalDeltaTime) {
         time_t now = time(nullptr);
         struct tm t{};
         localtime_s(&t, &now);
-        // Negative angle = clockwise when viewed from inside (facing +Z toward front wall)
-        float hourAngle   = -(t.tm_hour % 12) * 30.0f - t.tm_min * 0.5f;
-        float minuteAngle = -t.tm_min * 6.0f - t.tm_sec * 0.1f;
-        float secondAngle = -t.tm_sec * 6.0f;
+        // Positive angle = clockwise on screen when facing +Z (camera right = world -X)
+        float hourAngle   = (t.tm_hour % 12) * 30.0f + t.tm_min * 0.5f;
+        float minuteAngle = t.tm_min * 6.0f + t.tm_sec * 0.1f;
+        float secondAngle = t.tm_sec * 6.0f;
 
         // Clock is on front wall: rotate around Z axis, pivot at (7.5, 2.8, 9.68)
         auto buildHand = [](float hcx, float hcy, float hcz,
@@ -1828,10 +1828,10 @@ void Scene::BuildClock()
     Add("clock_face", {cx, cy, cz},    {0.58f, 0.58f, 0.04f}, faceColor);
 
     // ---- 12 hour markers in the XY plane ----
-    // Viewer faces +Z toward the wall, so clockwise: 3 o'clock = +X (right)
+    // Viewer faces +Z toward the wall; camera right = world -X, so 3 o'clock = -X (screen right)
     for (int h = 0; h < 12; h++) {
         float a  = glm::radians(static_cast<float>(h * 30));
-        float mx = cx + 0.22f * std::sin(a);   // +X = viewer's right at 3 o'clock
+        float mx = cx - 0.22f * std::sin(a);   // -X = viewer's right at 3 o'clock
         float my = cy + 0.22f * std::cos(a);   // +Y = up at 12 o'clock
         glm::vec3 dotColor = (h == 0 || h == 3 || h == 6 || h == 9)
                            ? glm::vec3(0.72f, 0.56f, 0.24f)
