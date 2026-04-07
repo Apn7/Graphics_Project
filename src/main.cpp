@@ -72,6 +72,11 @@ static LightState g_Lights;
 // Phase 7: Fan toggle — controlled by G key
 static bool g_FanOn = true;
 
+// Phase 8: Bird's Eye View — controlled by B key
+// When true, the normal camera matrices are replaced with a top-down
+// orthographic view looking straight down at the room center.
+static bool g_BirdsEye = false;
+
 // =============================================================================
 // main — Application entry point
 // =============================================================================
@@ -157,6 +162,11 @@ int main() {
     LOG_INFO("    8            — Specular component ON/OFF");
     LOG_INFO("    G            — Ceiling fan ON/OFF");
     LOG_INFO("");
+    LOG_INFO("  VIEWING & INTERACTIVES");
+    LOG_INFO("    B            — Bird's Eye View (top-down orthographic)");
+    LOG_INFO("    H            — Toggle Door Open/Close");
+    LOG_INFO("    J            — Toggle Windows Slide Up/Down");
+    LOG_INFO("");
     LOG_INFO("  GENERAL");
     LOG_INFO("    ESC          — Exit application");
     LOG_INFO("");
@@ -177,8 +187,9 @@ int main() {
         // ---- Process input ----
         InputHandler::ProcessContinuousInput(window.GetNativeWindow(), &camera, deltaTime);
 
-        // ---- Update animations (fan rotation) ----
-        if (g_FanOn) scene.UpdateAnimations(deltaTime);
+        // ---- Update animations (fan, door, windows) ----
+        // If fan is OFF, we pause its time delta, but keep animating door/windows
+        scene.UpdateAnimations(g_FanOn ? deltaTime : 0.0f, deltaTime);
 
         // ---- Check debug mode keys (F1-F4 scene groups, F5 wireframe, F6 points) ----
         if (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_F1) == GLFW_PRESS) g_RenderMode = 0;
@@ -275,6 +286,28 @@ int main() {
         lLast=lNow; nLast=nNow; iLast=iNow; oLast=oNow;
         k6Last=k6Now; k7Last=k7Now; k8Last=k8Now; gLast=gNow;
 
+        // ---- Phase 8: Bird's Eye View toggle (B key) ----
+        static bool bLast = false;
+        bool bNow = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_B) == GLFW_PRESS);
+        if (bNow && !bLast) {
+            g_BirdsEye = !g_BirdsEye;
+            LOG_INFO(std::string("Bird's Eye View: ") + (g_BirdsEye ? "ON" : "OFF"));
+        }
+        // ---- Phase 8: Interactives toggles (H, J) ----
+        static bool hLast = false, jLast = false;
+        bool hNow = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_H) == GLFW_PRESS);
+        bool jNow = (glfwGetKey(window.GetNativeWindow(), GLFW_KEY_J) == GLFW_PRESS);
+        
+        if (hNow && !hLast) {
+            scene.ToggleDoor();
+            LOG_INFO("Door toggled.");
+        }
+        if (jNow && !jLast) {
+            scene.ToggleWindows();
+            LOG_INFO("Windows toggled.");
+        }
+        hLast = hNow; jLast = jNow;
+
         // ---- Update window title ----
         float fps = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
         glm::vec3 pos = camera.GetPosition();
@@ -315,15 +348,36 @@ int main() {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        // ---- Phase 6: Set camera matrices for multi-shader render ----
-        scene.SetCameraMatrices(camera.GetViewMatrix(), projection);
+        // ---- Phase 6 + 8: Set camera matrices (or Bird's Eye override) ----
+        glm::mat4 activeView       = camera.GetViewMatrix();
+        glm::mat4 activeProjection = projection;
+        glm::vec3 activeCamPos     = camera.GetPosition();
+
+        if (g_BirdsEye) {
+            // Bird's Eye View: camera sits just BELOW the ceiling looking straight down.
+            // Ceiling slab: centered at Y=6.0, thickness=0.2 → bottom face at Y=5.9.
+            // Eye at Y=5.75 puts us inside the room so the ceiling is above/behind the camera.
+            // Near=0.1 clips the tiny gap above camera. Far=6.5 reaches the floor at Y=0.
+            static const glm::vec3 BEV_EYE    = glm::vec3(0.0f, 5.75f, 0.001f); // inside room, under ceiling
+            static const glm::vec3 BEV_TARGET = glm::vec3(0.0f, 0.0f,  0.0f);   // floor center
+            static const glm::vec3 BEV_UP     = glm::vec3(0.0f, 0.0f, -1.0f);   // -Z = "north" on screen
+
+            activeView   = glm::lookAt(BEV_EYE, BEV_TARGET, BEV_UP);
+            // Orthographic bounds: match full room width/depth + small margin
+            float halfW  = 9.0f;   // room X half-width = 8, +1 margin
+            float halfD  = 8.0f;   // room Z half-depth = 7, +1 margin
+            activeProjection = glm::ortho(-halfW, halfW, -halfD, halfD, 0.1f, 6.5f);
+            activeCamPos = BEV_EYE;
+        }
+
+
+        scene.SetCameraMatrices(activeView, activeProjection);
 
         // ---- Phase 7: Upload lighting uniforms to all 4 shaders ----
-        glm::vec3 camPos = camera.GetPosition();
-        Scene::SetLighting(flatShader,     g_Lights, camPos);
-        Scene::SetLighting(simpleShader,   g_Lights, camPos);
-        Scene::SetLighting(vertexShader,   g_Lights, camPos);
-        Scene::SetLighting(fragmentShader, g_Lights, camPos);
+        Scene::SetLighting(flatShader,     g_Lights, activeCamPos);
+        Scene::SetLighting(simpleShader,   g_Lights, activeCamPos);
+        Scene::SetLighting(vertexShader,   g_Lights, activeCamPos);
+        Scene::SetLighting(fragmentShader, g_Lights, activeCamPos);
 
         // ---- Render scene ----
         switch (g_RenderMode) {

@@ -1,5 +1,5 @@
 // =============================================================================
-// Primitives.h — Primitive Geometry Factory (Phase 3)
+// Primitives.h — Primitive Geometry Factory (Phase 3 + Phase 8 Curved Objects)
 // =============================================================================
 // Provides factory functions that return ready-to-use Mesh objects for
 // common 3D shapes. Phase 5 will call these constantly to build furniture,
@@ -54,5 +54,42 @@ namespace Primitives {
     void DrawCube(Shader& shader, const glm::mat4& modelMatrix);
 
     // TODO Phase 5: Add CreateBookshelf(), CreateChair(), CreateTable(), CreateFan()
+
+    // =========================================================================
+    // CreateSphere — UV sphere (parametric surface of revolution)
+    // =========================================================================
+    // Generates a unit sphere (radius = 1) centered at origin.
+    // stacks = latitude divisions, slices = longitude divisions.
+    // UV: u along longitude (0→1), v along latitude (0→1) — maps to equirectangular textures.
+    // Phase 8: Used for the textured globe on the reading table.
+    //
+    // Returns: unique_ptr<Mesh>
+    // =========================================================================
+    std::unique_ptr<Mesh> CreateSphere(int stacks = 32, int slices = 32);
+
+    // =========================================================================
+    // CreateCone — Ruled surface (circle base → tip point)
+    // =========================================================================
+    // Generates a closed cone: lateral surface + circular base cap.
+    // Height along +Y axis, apex at (0, height, 0), base at Y=0 radius=1.
+    // Phase 8: Used as the pendant lampshade geometry.
+    //
+    // Returns: unique_ptr<Mesh>
+    // =========================================================================
+    std::unique_ptr<Mesh> CreateCone(int slices = 32);
+
+    // =========================================================================
+    // CreateBezierVase — Surface of revolution from a Bezier profile curve
+    // =========================================================================
+    // Builds a vase by:
+    //   1. Evaluating a cubic Bezier curve in 2D (radius vs height)
+    //   2. Revolving it 360° around the Y-axis (surface of revolution)
+    // Control points define the silhouette — tweak them to change shape.
+    // Phase 8: Decorative vase placed near the library door.
+    // The vase is designed tall enough to hold a fractal plant later.
+    //
+    // Returns: unique_ptr<Mesh>
+    // =========================================================================
+    std::unique_ptr<Mesh> CreateBezierVase(int profileSteps = 40, int radialSlices = 48);
 
 } // namespace Primitives
