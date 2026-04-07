@@ -783,7 +783,21 @@ void Scene::UpdateAnimations(float fanDeltaTime, float globalDeltaTime) {
         m_Objects[m_FanBladeIndices[i]].Transform = model;
     }
 
-    // ---- 2. Door Animation (interactive) ----
+    // ---- 2. Globe Rotation ----
+    m_GlobeAngle += m_GlobeSpeed * globalDeltaTime;
+    if (m_GlobeAngle > 360.0f) m_GlobeAngle -= 360.0f;
+    for (auto& obj : m_CurvedObjects) {
+        if (obj.Label == "globe") {
+            using namespace glm;
+            obj.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+                          * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
+                          * rotate(mat4(1.0f), radians(m_GlobeAngle), vec3(0.0f, 1.0f, 0.0f))
+                          * scale(mat4(1.0f), vec3(0.28f, 0.28f, 0.28f));
+            break;
+        }
+    }
+
+    // ---- 3. Door Animation (interactive) ----
     float doorTarget = m_DoorOpen ? 80.0f : 0.0f; // degrees
     float doorSpeed = 160.0f; // degrees per second
     if (m_DoorAngle < doorTarget) {
@@ -993,6 +1007,16 @@ void Scene::AssignTextures() {
             obj.BlendFactor = 0.30f;  // Subtle tint — mostly texture
         }
 
+        // DOOR PANEL — wood texture with color blend
+        else if (obj.Label == "door") {
+            obj.TextureID   = TextureManager::Get().GetID("door");
+            obj.Mode        = TextureMode::FRAGMENT_BLEND;
+            obj.UVTileX     = 1.0f;
+            obj.UVTileY     = 1.0f;
+            obj.Color       = LibraryColors::WOOD_MEDIUM;
+            obj.BlendFactor = 0.25f;  // Mostly texture, slight wood tint
+        }
+
         // Everything else remains FLAT_COLOR (Phase 5 behavior unchanged)
     }
 
@@ -1011,27 +1035,17 @@ void Scene::AssignTextures() {
 // =============================================================================
 void Scene::BuildPendantLamps() {
     auto BuildLamp = [&](const std::string& id, float cx) {
-        // Cord — thin vertical rod from ceiling to shade
+        // Cord — thin vertical rod from ceiling to cone shade
         Add("lamp_" + id + "_cord",
             {cx, 5.3f, 0.0f},
             {0.03f, 0.4f, 0.03f},
             glm::vec3(0.15f, 0.12f, 0.10f));   // Dark brown
-
-        // Shade — wide flat box representing lampshade
-        Add("lamp_" + id + "_shade",
-            {cx, 4.95f, 0.0f},
-            {0.40f, 0.18f, 0.40f},
-            glm::vec3(0.55f, 0.45f, 0.25f));   // Warm tan/brass
-
-        // Bulb — tiny bright cube (warm yellow glow appearance)
-        Add("lamp_" + id + "_bulb",
-            {cx, 4.88f, 0.0f},
-            {0.10f, 0.08f, 0.10f},
-            glm::vec3(1.0f, 0.95f, 0.70f));    // Warm bright yellow
+        // Cone lampshade is added in BuildCurvedObjects (ruled surface).
+        // Box shade and bulb cube are intentionally removed.
     };
 
     BuildLamp("L", -4.5f);
-    BuildLamp("C",  0.0f);
+    // BuildLamp("C",  0.0f); // Removed — conflicts with center ceiling fan
     BuildLamp("R", +4.5f);
 
     LOG_INFO("BuildPendantLamps: 3 pendant lamps added above tables.");
@@ -1057,28 +1071,74 @@ void Scene::BuildCurvedObjects() {
     using namespace glm;
 
     // ---- 1. GLOBE (textured sphere) on the center reading table ----
-    // Table top is at Y=1.35. Globe radius = 0.28 (visually comfortable on table).
-    // Position: center table (X=0, Z=0), sitting on top.
+    // Table top Y = 0.83 (table center 0.78 + half-height 0.05).
+    // Globe radius = 0.28. Center Y = 1.33 (lifted up to sit on a stand).
+    // Globe is tilted 23.5° (Earth's axial tilt) and rotates around its tilted axis.
     {
         CurvedObject globe;
         globe.Label     = "globe";
-        globe.Color     = vec3(0.3f, 0.5f, 0.8f);  // Ocean blue fallback color
-        globe.Mode      = TextureMode::FLAT_COLOR;   // Will be SIMPLE_TEXTURE once user provides world map
-        globe.TextureID = 0;
-        // Sphere radius=1 in mesh space. Scale by 0.28 on all axes.
-        // Center sits on table: Y = tableTopY + radius = 1.35 + 0.28 = 1.63
-        globe.Transform = translate(mat4(1.0f), vec3(0.0f, 1.63f, 0.0f))
-                        * scale(mat4(1.0f),     vec3(0.28f, 0.28f, 0.28f));
+        globe.Color     = vec3(0.3f, 0.5f, 0.8f);  // Ocean blue fallback
+        globe.Mode      = TextureMode::SIMPLE_TEXTURE;
+        globe.TextureID = TextureManager::Get().GetID("earth");
+        globe.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+                        * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
+                        * scale(mat4(1.0f), vec3(0.28f, 0.28f, 0.28f));
         globe.Mesh      = Primitives::CreateSphere(40, 40);
         m_CurvedObjects.push_back(std::move(globe));
     }
 
-    // ---- 2. GLOBE STAND — small tilted axis rod (flat cube, just cosmetic) ----
-    // A tiny dark rod to suggest the globe is on a stand.
-    Add("globe_stand_base", {0.0f, 1.37f, 0.0f},
-        {0.12f, 0.04f, 0.12f}, vec3(0.25f, 0.20f, 0.15f));
-    Add("globe_stand_pole", {0.0f, 1.50f, 0.0f},
-        {0.02f, 0.26f, 0.02f}, vec3(0.35f, 0.30f, 0.25f));
+    // ---- 2. GLOBE STAND — Realistic curved meridian stand ----
+    // Base disc — smooth circular plate sitting on the table
+    // A squashed sphere works brilliantly as a rounded disc.
+    {
+        const glm::vec3 standDark(0.18f, 0.15f, 0.14f);  // Near-black charcoal/metal
+
+        CurvedObject base;
+        base.Label     = "globe_stand_base";
+        base.Color     = standDark;
+        base.Mode      = TextureMode::FLAT_COLOR;
+        base.Transform = translate(mat4(1.0f), vec3(0.0f, 0.85f, 0.0f))
+                       * scale(mat4(1.0f), vec3(0.20f, 0.02f, 0.20f));
+        base.Mesh      = Primitives::CreateSphere(16, 24);
+        m_CurvedObjects.push_back(std::move(base));
+
+        // Connective vertical rod from base to the meridian arm
+        // Base is at Y=0.85. Lowest point of the 0.30 radius arm is roughly Y=1.33-0.30=1.03. Center ~0.94
+        Add("globe_stand_pole", {0.0f, 0.94f, 0.0f}, {0.025f, 0.18f, 0.025f}, standDark);
+
+        // Curved Meridian Ring — spans 180 degrees from South Pole to North Pole.
+        // It is a half-torus centered at the globe's center, titled by -23.5° just like the globe.
+        CurvedObject arm;
+        arm.Label     = "globe_stand_meridian";
+        arm.Color     = standDark;
+        arm.Mode      = TextureMode::FLAT_COLOR;
+        // The half torus is created in the XY plane spanning -Y to +Y on the +X side.
+        // We translate it to the globe center (0, 1.33, 0) and tilt it around Z by -23.5°.
+        arm.Transform = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+                      * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f));
+        arm.Mesh      = Primitives::CreateHalfTorus(0.30f, 0.015f, 16, 32);  // Radius 0.30 tightly hugs the 0.28 globe
+        m_CurvedObjects.push_back(std::move(arm));
+
+        // Let's add tiny pins for the poles connecting the ring to the globe.
+        // North Pole pin
+        glm::mat4 np = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+                     * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
+                     * translate(mat4(1.0f), vec3(0.0f, 0.29f, 0.0f))
+                     * scale(mat4(1.0f), vec3(0.012f, 0.02f, 0.012f));
+        Add("globe_stand_pin_n", np[3], {0.012f, 0.02f, 0.012f}, standDark);
+        // We override the push_back transform to get the exact rotated position
+        m_Objects.back().Transform = np;
+        m_Objects.back().OriginalTransform = np;
+
+        // South Pole pin
+        glm::mat4 sp = translate(mat4(1.0f), vec3(0.0f, 1.33f, 0.0f))
+                     * rotate(mat4(1.0f), radians(-23.5f), vec3(0.0f, 0.0f, 1.0f))
+                     * translate(mat4(1.0f), vec3(0.0f, -0.29f, 0.0f))
+                     * scale(mat4(1.0f), vec3(0.012f, 0.02f, 0.012f));
+        Add("globe_stand_pin_s", sp[3], {0.012f, 0.02f, 0.012f}, standDark);
+        m_Objects.back().Transform = sp;
+        m_Objects.back().OriginalTransform = sp;
+    }
 
     // ---- 3. PENDANT LAMP CONES (replace 3 flat box lampshades) ----
     // The old shade was: {cx, 4.95f, 0.0f}, scale {0.40f, 0.18f, 0.40f}
@@ -1101,7 +1161,7 @@ void Scene::BuildCurvedObjects() {
         m_CurvedObjects.push_back(std::move(cone));
     };
     AddLampCone("L", -4.5f);
-    AddLampCone("C",  0.0f);
+    // AddLampCone("C",  0.0f); // Removed — conflicts with center ceiling fan
     AddLampCone("R", +4.5f);
 
     // ---- 4. DECORATIVE BEZIER VASE by the door ----

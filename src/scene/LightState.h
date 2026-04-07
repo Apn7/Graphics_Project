@@ -55,7 +55,7 @@ struct LightState {
     static constexpr int NUM_POINT_LIGHTS = 3;
     PointLight PointLights[NUM_POINT_LIGHTS] = {
         { glm::vec3(-4.5f, 4.8f, 0.0f), glm::vec3(1.0f, 0.88f, 0.65f) },  // Warm amber
-        { glm::vec3( 0.0f, 4.8f, 0.0f), glm::vec3(1.0f, 0.88f, 0.65f) },
+        { glm::vec3( 0.0f, 4.8f, 0.0f), glm::vec3(0.0f, 0.0f,  0.0f)  },  // Disabled (light removed from fan)
         { glm::vec3( 4.5f, 4.8f, 0.0f), glm::vec3(1.0f, 0.88f, 0.65f) }
     };
 
