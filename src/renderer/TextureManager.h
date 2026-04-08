@@ -71,6 +71,8 @@ public:
         Load("earth",   "textures/earth.png");
         Load("door",    "textures/door.jpg");
         Load("shelf",   "textures/shelf.jpg");
+        Load("desk",    "textures/desk.jpg");
+        Load("cone",    "textures/cone.png");
 
         LOG_INFO("TextureManager: All textures loaded.");
     }

@@ -1245,6 +1245,21 @@ void Scene::AssignTextures() {
             obj.BlendFactor = 0.35f;
         }
 
+        // LIBRARIAN DESK — structural wood/mahogany parts
+        else if (obj.Label == "desk_top" ||
+                 obj.Label == "desk_front_panel" ||
+                 obj.Label == "desk_end_L" ||
+                 obj.Label == "desk_end_R" ||
+                 obj.Label == "desk_partition" ||
+                 obj.Label.rfind("desk_drawer_", 0) == 0 ||
+                 obj.Label.rfind("desk_leg_", 0) == 0) {
+            obj.TextureID   = TextureManager::Get().GetID("desk");
+            obj.Mode        = TextureMode::FRAGMENT_BLEND;
+            obj.UVTileX     = 2.0f;
+            obj.UVTileY     = 1.0f;
+            obj.BlendFactor = 0.35f;
+        }
+
         // Everything else remains FLAT_COLOR (Phase 5 behavior unchanged)
     }
 
@@ -1374,7 +1389,9 @@ void Scene::BuildCurvedObjects() {
                 CurvedObject cone;
                 cone.Label   = "lamp_" + std::to_string(lampIdx++) + "_cone";
                 cone.Color   = vec3(0.55f, 0.45f, 0.25f);  // Warm tan/brass
-                cone.Mode    = TextureMode::FLAT_COLOR;
+                cone.TextureID  = TextureManager::Get().GetID("cone");
+                cone.Mode    = TextureMode::FRAGMENT_BLEND;
+                cone.BlendFactor = 0.30f;
                 cone.Transform = translate(mat4(1.0f), vec3(cx, PENDANT_CONE_CENTER_Y, cz))
                                * scale(mat4(1.0f), vec3(0.25f, PENDANT_CONE_SCALE_Y, 0.25f));
                 cone.Mesh    = Primitives::CreateCone(32);
