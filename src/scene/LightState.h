@@ -71,12 +71,12 @@ struct LightState {
     bool      SpotLightOn      = true;
     glm::vec3 SpotLightPos     = glm::vec3(8.27f, 1.73f, 6.50f);  // Centered on the bulb inside the open cone
     glm::vec3 SpotLightDir     = glm::normalize(glm::vec3(-0.52f, -0.77f, -0.36f)); // Aimed at the reading surface
-    glm::vec3 SpotLightColor   = glm::vec3(1.18f, 1.10f, 0.90f);  // Slightly stronger warm incandescent
+    glm::vec3 SpotLightColor   = glm::vec3(1.55f, 1.42f, 1.12f);  // Brighter warm incandescent hotspot on the reading surface
     float     SpotCutoff       = 0.9659f;   // cos(15°)
     float     SpotOuterCutoff  = 0.9336f;   // cos(21°)
     float     SpotConstant     = 1.0f;
-    float     SpotLinear       = 0.24f;
-    float     SpotQuadratic    = 0.28f;
+    float     SpotLinear       = 0.18f;
+    float     SpotQuadratic    = 0.18f;
 
     // ---- Material defaults (applied to all objects uniformly) ----
     float AmbientStrength   = 0.18f;

@@ -359,18 +359,21 @@ int main() {
         glm::vec3 activeCamPos     = camera.GetPosition();
 
         if (g_BirdsEye) {
-            // Bird's Eye View: camera sits just BELOW the ceiling looking straight down.
-            // Ceiling slab: centered at Y=6.0, thickness=0.2 → bottom face at Y=5.9.
-            // Eye at Y=5.75 puts us inside the room so the ceiling is above/behind the camera.
-            // Near=0.1 clips the tiny gap above camera. Far=6.5 reaches the floor at Y=0.
-            static const glm::vec3 BEV_EYE    = glm::vec3(0.0f, 5.75f, 0.001f); // inside room, under ceiling
-            static const glm::vec3 BEV_TARGET = glm::vec3(0.0f, 0.0f,  0.0f);   // floor center
-            static const glm::vec3 BEV_UP     = glm::vec3(0.0f, 0.0f, -1.0f);   // -Z = "north" on screen
+            // Bird's Eye View: camera placed INSIDE the room, just below the ceiling slab.
+            // Ceiling top face is at Y=6.0; slab is ~0.2 thick, so bottom face ~Y=5.9.
+            // Eye at Y=5.75 is inside the room → ceiling is above/behind → not rendered.
+            // Looking straight down at the floor center (Y=0).
+            // Room is 24x20 units: halfW=12, halfD=10. +2 margin each side so
+            // wall-mounted bookshelves at X=±12, Z=±10 are never clipped by the ortho volume.
+            static const glm::vec3 BEV_EYE    = glm::vec3(0.0f, 5.75f, 0.001f); // inside room, below ceiling
+            static const glm::vec3 BEV_TARGET = glm::vec3(0.0f, 0.0f,   0.0f);  // floor center
+            static const glm::vec3 BEV_UP     = glm::vec3(0.0f, 0.0f,  -1.0f);  // -Z = "north" on screen
 
             activeView   = glm::lookAt(BEV_EYE, BEV_TARGET, BEV_UP);
-            // Orthographic bounds: match full room width/depth + small margin
-            float halfW  = 9.0f;   // room X half-width = 8, +1 margin
-            float halfD  = 8.0f;   // room Z half-depth = 7, +1 margin
+            // halfW=14 covers X±12 walls+shelves; halfD=12 covers Z±10 walls+shelves
+            // far=6.5 → camera at Y=5.75 reaches Y=5.75-6.5 = -0.75 (well past the floor)
+            float halfW  = 14.0f;
+            float halfD  = 12.0f;
             activeProjection = glm::ortho(-halfW, halfW, -halfD, halfD, 0.1f, 6.5f);
             activeCamPos = BEV_EYE;
         }
