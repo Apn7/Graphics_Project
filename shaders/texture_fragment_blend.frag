@@ -52,10 +52,10 @@ uniform float u_SpotQuadratic;
 
 float DeskLampSurfaceMask() {
     const vec2 deskCenter = vec2(6.45, 5.95);
-    const vec2 deskRadius = vec2(1.55, 0.82);
+    const vec2 deskRadius = vec2(2.2, 1.2);
     vec2 local = (v_FragPos.xz - deskCenter) / deskRadius;
     float radial = 1.0 - dot(local, local);
-    float topMask = smoothstep(0.88, 0.97, v_FragPos.y);
+    float topMask = smoothstep(0.82, 0.96, v_FragPos.y);
     return max(radial, 0.0) * topMask;
 }
 
