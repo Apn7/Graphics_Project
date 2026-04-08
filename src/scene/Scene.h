@@ -140,6 +140,7 @@ private:
     void BuildFractalTree();     // Phase 9: recursive fractal plant growing from the vase
     void BuildLibrarianDesk();   // Phase 10: posh desk + exec chair + study lamp (spotlight)
     void BuildClock();           // Phase 11: wall clock above librarian desk (real-time hands)
+    void BuildTableProps();      // Phase 12: decorative props on reading tables (books, bottles, etc.)
 
     // Phase 6: Assign textures and modes after Build
     void AssignTextures();

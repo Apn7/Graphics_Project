@@ -36,6 +36,12 @@ static constexpr float ROOM_HALF_D  = 10.0f;  // Z: -10 to +10 (depth=20)
 static constexpr float ROOM_HEIGHT  = 6.0f;   // Y: 0 to 6
 static constexpr float WALL_THICK   = 0.2f;
 static const glm::vec3 LIBRARIAN_DESK_CENTER(7.5f, 0.0f, 6.0f);
+static constexpr float PENDANT_CONE_CENTER_Y = 4.84f;
+static constexpr float PENDANT_CONE_SCALE_Y  = 0.22f;
+static constexpr float PENDANT_CONE_APEX_Y   = PENDANT_CONE_CENTER_Y + PENDANT_CONE_SCALE_Y;
+static constexpr float CEILING_BOTTOM_Y      = ROOM_HEIGHT - WALL_THICK * 0.5f;
+static constexpr float PENDANT_CORD_CENTER_Y = (CEILING_BOTTOM_Y + PENDANT_CONE_APEX_Y) * 0.5f;
+static constexpr float PENDANT_CORD_HEIGHT   = CEILING_BOTTOM_Y - PENDANT_CONE_APEX_Y;
 
 static glm::mat4 RotateAroundPivotY(const glm::vec3& pivot, float degrees)
 {
@@ -115,6 +121,9 @@ void Scene::Build() {
 
     // Phase 11: Wall clock above librarian desk (real-time hands)
     BuildClock();
+
+    // Phase 12: Props on reading tables (books, pencils, water bottles, notepads)
+    BuildTableProps();
 
     // Phase 6: assign textures and modes
     AssignTextures();
@@ -1259,8 +1268,8 @@ void Scene::BuildPendantLamps() {
         for (float cx : lampX) {
             std::string id = std::to_string(lampIdx++);
             Add("lamp_" + id + "_cord",
-                { cx, 5.3f, cz },
-                { 0.03f, 0.4f, 0.03f },
+                { cx, PENDANT_CORD_CENTER_Y, cz },
+                { 0.03f, PENDANT_CORD_HEIGHT, 0.03f },
                 glm::vec3(0.15f, 0.12f, 0.10f));
         }
     }
@@ -1366,8 +1375,8 @@ void Scene::BuildCurvedObjects() {
                 cone.Label   = "lamp_" + std::to_string(lampIdx++) + "_cone";
                 cone.Color   = vec3(0.55f, 0.45f, 0.25f);  // Warm tan/brass
                 cone.Mode    = TextureMode::FLAT_COLOR;
-                cone.Transform = translate(mat4(1.0f), vec3(cx, 4.84f, cz))
-                               * scale(mat4(1.0f), vec3(0.25f, 0.22f, 0.25f));
+                cone.Transform = translate(mat4(1.0f), vec3(cx, PENDANT_CONE_CENTER_Y, cz))
+                               * scale(mat4(1.0f), vec3(0.25f, PENDANT_CONE_SCALE_Y, 0.25f));
                 cone.Mesh    = Primitives::CreateCone(32);
                 m_CurvedObjects.push_back(std::move(cone));
 
@@ -1911,4 +1920,189 @@ void Scene::BuildClock()
     Add("clock_pin", {cx, cy, pinZ - 0.01f}, {0.045f, 0.045f, 0.045f}, brassColor);
 
     LOG_INFO("BuildClock: wall clock built on front wall at (7.5, 2.8, 9.75).");
+}
+
+// =============================================================================
+// BuildTableProps — Phase 12
+// =============================================================================
+// Places realistic reading props on each of the 8 reading tables:
+//   - 1 open book (flat, slightly angled)
+//   - 1 small stack of 2 closed books (spine-up, off to one side)
+//   - 1 pencil holder (thin tall cup)
+//   - 1 water bottle (narrow cylinder-ish cuboid)
+//   - 1 notepad / paper sheet
+//
+// Tabletop surface Y = 0.78 (center) + 0.05 (half-height) = 0.83
+// =============================================================================
+void Scene::BuildTableProps() {
+    constexpr float TABLE_TOP_Y = 0.83f;  // Y of tabletop surface
+
+    // Book colors to cycle through for variety
+    const glm::vec3 bookColors[] = {
+        {0.75f, 0.15f, 0.10f},  // red
+        {0.15f, 0.30f, 0.70f},  // blue
+        {0.10f, 0.55f, 0.20f},  // green
+        {0.85f, 0.75f, 0.10f},  // yellow
+        {0.85f, 0.40f, 0.10f},  // orange
+        {0.45f, 0.10f, 0.65f},  // purple
+        {0.50f, 0.28f, 0.10f},  // brown
+        {0.20f, 0.45f, 0.60f},  // teal
+    };
+
+    const glm::vec3 PAPER_WHITE  = {0.94f, 0.93f, 0.88f};
+    const glm::vec3 PENCIL_WOOD  = {0.85f, 0.70f, 0.20f};  // yellow pencil
+    const glm::vec3 PENCIL_TIP   = {0.15f, 0.15f, 0.15f};  // graphite tip
+    const glm::vec3 CUP_GREY     = {0.55f, 0.55f, 0.58f};  // metal pencil cup
+    const glm::vec3 BOTTLE_CLEAR = {0.70f, 0.88f, 0.95f};  // frosted water bottle
+    const glm::vec3 BOTTLE_CAP   = {0.20f, 0.55f, 0.25f};  // green cap
+    const glm::vec3 RULER_GREY   = {0.78f, 0.78f, 0.80f};  // plastic ruler
+
+    // All 8 reading table centers (front-right replaced by librarian desk)
+    struct TableInfo { float cx, cz; int colorIdx; };
+    const TableInfo tables[] = {
+        { -7.5f, -6.0f, 0 },
+        {  0.0f, -6.0f, 1 },
+        { +7.5f, -6.0f, 2 },
+        { -7.5f,  0.0f, 3 },
+        {  0.0f,  0.0f, 4 },
+        { +7.5f,  0.0f, 5 },
+        { -7.5f, +6.0f, 6 },
+        {  0.0f, +6.0f, 7 },
+        // +7.5, +6.0 is librarian desk — skip
+    };
+
+    int ti = 0;
+    for (const auto& t : tables) {
+        const float cx = t.cx;
+        const float cz = t.cz;
+        const std::string pfx = "tprop_" + std::to_string(ti);
+        const glm::vec3& col1 = bookColors[t.colorIdx];
+        const glm::vec3& col2 = bookColors[(t.colorIdx + 3) % 8];
+
+        // ---- Open book (flat on table, slightly rotated ~12 deg) ----
+        // Cover bottom
+        Add(pfx + "_obook_cover",
+            {cx - 0.30f, TABLE_TOP_Y + 0.012f, cz + 0.05f},
+            {0.0f, 12.0f, 0.0f},
+            {0.38f, 0.024f, 0.26f},
+            col1);
+        // Left page (cream)
+        Add(pfx + "_obook_lpg",
+            {cx - 0.42f, TABLE_TOP_Y + 0.026f, cz + 0.04f},
+            {0.0f, 12.0f, 0.0f},
+            {0.175f, 0.004f, 0.235f},
+            PAPER_WHITE);
+        // Right page (cream, slightly different angle for open-book look)
+        Add(pfx + "_obook_rpg",
+            {cx - 0.185f, TABLE_TOP_Y + 0.026f, cz + 0.06f},
+            {0.0f, 12.0f, 0.0f},
+            {0.175f, 0.004f, 0.235f},
+            PAPER_WHITE);
+        // Spine ridge
+        Add(pfx + "_obook_spine",
+            {cx - 0.305f, TABLE_TOP_Y + 0.028f, cz + 0.05f},
+            {0.0f, 12.0f, 0.0f},
+            {0.012f, 0.006f, 0.235f},
+            col1 * 0.7f);
+
+        // ---- Closed book stack (2 books, right side of table) ----
+        // Bottom book
+        Add(pfx + "_cbook0",
+            {cx + 0.55f, TABLE_TOP_Y + 0.030f, cz - 0.05f},
+            {0.0f, -8.0f, 0.0f},
+            {0.28f, 0.055f, 0.20f},
+            col2);
+        // Top book (slightly offset for natural stacking)
+        Add(pfx + "_cbook1",
+            {cx + 0.555f, TABLE_TOP_Y + 0.090f, cz - 0.04f},
+            {0.0f, -5.0f, 0.0f},
+            {0.26f, 0.050f, 0.19f},
+            bookColors[(t.colorIdx + 5) % 8]);
+        // Book page edges (white strips on closed books)
+        Add(pfx + "_cbook0_pages",
+            {cx + 0.685f, TABLE_TOP_Y + 0.030f, cz - 0.05f},
+            {0.0f, -8.0f, 0.0f},
+            {0.015f, 0.048f, 0.195f},
+            PAPER_WHITE);
+        Add(pfx + "_cbook1_pages",
+            {cx + 0.687f, TABLE_TOP_Y + 0.090f, cz - 0.04f},
+            {0.0f, -5.0f, 0.0f},
+            {0.015f, 0.043f, 0.185f},
+            PAPER_WHITE);
+
+        // ---- Pencil holder (metal cup near top-right corner) ----
+        const float cupX = cx + 0.85f;
+        const float cupZ = cz + 0.30f;
+        // Cup body
+        Add(pfx + "_cup",
+            {cupX, TABLE_TOP_Y + 0.055f, cupZ},
+            {0.06f, 0.110f, 0.06f},
+            CUP_GREY);
+        // 3 pencils sticking out
+        for (int p = 0; p < 3; ++p) {
+            float pox = (p - 1) * 0.018f;
+            float poz = (p == 1) ? 0.012f : 0.0f;
+            // Pencil shaft (yellow)
+            Add(pfx + "_pencil" + std::to_string(p),
+                {cupX + pox, TABLE_TOP_Y + 0.175f + p * 0.008f, cupZ + poz},
+                {0.012f, 0.130f, 0.012f},
+                PENCIL_WOOD);
+            // Pencil tip (graphite)
+            Add(pfx + "_penciltip" + std::to_string(p),
+                {cupX + pox, TABLE_TOP_Y + 0.250f + p * 0.008f, cupZ + poz},
+                {0.009f, 0.018f, 0.009f},
+                PENCIL_TIP);
+        }
+
+        // ---- Water bottle (left front corner) ----
+        const float btX = cx - 0.80f;
+        const float btZ = cz + 0.30f;
+        // Bottle body
+        Add(pfx + "_bottle",
+            {btX, TABLE_TOP_Y + 0.130f, btZ},
+            {0.045f, 0.260f, 0.045f},
+            BOTTLE_CLEAR);
+        // Cap
+        Add(pfx + "_bottle_cap",
+            {btX, TABLE_TOP_Y + 0.268f, btZ},
+            {0.050f, 0.025f, 0.050f},
+            BOTTLE_CAP);
+        // Water fill (slightly darker blue inside)
+        Add(pfx + "_bottle_water",
+            {btX, TABLE_TOP_Y + 0.090f, btZ},
+            {0.036f, 0.150f, 0.036f},
+            {0.30f, 0.65f, 0.90f});
+
+        // ---- Notepad / paper sheet (center-left) ----
+        Add(pfx + "_notepad_bg",
+            {cx + 0.12f, TABLE_TOP_Y + 0.005f, cz - 0.25f},
+            {0.0f, 3.0f, 0.0f},
+            {0.32f, 0.005f, 0.22f},
+            {0.85f, 0.82f, 0.75f});  // slightly off-white cover
+        Add(pfx + "_notepad_page",
+            {cx + 0.12f, TABLE_TOP_Y + 0.011f, cz - 0.25f},
+            {0.0f, 3.0f, 0.0f},
+            {0.29f, 0.003f, 0.20f},
+            PAPER_WHITE);
+        // Ruled lines (3 thin dark strips)
+        for (int ln = 0; ln < 3; ++ln) {
+            float lineZ = cz - 0.30f + ln * 0.06f;
+            Add(pfx + "_noteline" + std::to_string(ln),
+                {cx + 0.12f, TABLE_TOP_Y + 0.014f, lineZ},
+                {0.0f, 3.0f, 0.0f},
+                {0.26f, 0.001f, 0.006f},
+                {0.60f, 0.62f, 0.72f});  // faint blue ruled lines
+        }
+
+        // ---- Ruler (thin, lying flat diagonally) ----
+        Add(pfx + "_ruler",
+            {cx - 0.05f, TABLE_TOP_Y + 0.005f, cz + 0.15f},
+            {0.0f, 20.0f, 0.0f},
+            {0.40f, 0.003f, 0.045f},
+            RULER_GREY);
+
+        ++ti;
+    }
+
+    LOG_INFO("BuildTableProps: props placed on " + std::to_string(ti) + " reading tables.");
 }
