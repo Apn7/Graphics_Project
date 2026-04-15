@@ -18,8 +18,12 @@ The current implementation includes interactive first-person navigation, multi-s
   - Windows and door
   - Multiple wall shelf units
   - Books across shelf rows
-  - Tables and chairs
-  - Ceiling fan assembly
+  - Tables and chairs with detailed tabletop props (open books, pencil holders, water bottles)
+  - Ceiling fan assembly and pendant lamps
+  - Librarian reception desk with executive chair
+  - Real-time functioning wall clock
+  - Decorative curved objects (globe on meridian stand, bezier vases, study lamp)
+  - Recursive 3D fractal plants with self-similar fern fronds
 - Scene built from labeled `SceneObject` records with transform/color/texture metadata
 
 ### Camera & Interaction
@@ -195,5 +199,5 @@ build/3DLibrary.exe        # Windows (single-config generators like Ninja/MinGW)
 
 ## ✅ Current Status
 
-Phases implemented in code: **Phase 1 through Phase 6** (setup, scene construction, camera/input, scene organization, texture mapping modes, animation/debug controls).  
-Future phases (advanced lighting systems, UI/HUD, physics, optimization) are not yet fully implemented.
+Phases implemented in code: **Phase 1 through Phase 12** (setup, scene construction, camera/input, scene organization, texture mapping, lighting/curved objects, fractal trees, unique positional meshes like librarian desk/clock, and table props).  
+Future phases (advanced lighting models, UI/HUD, physics, optimization) are not yet fully implemented.
